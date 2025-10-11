@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -6,29 +7,36 @@ import 'package:haulam/screens/maintwo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../store_roof.dart';
 
-// ============================= BACK - END THINGS =============================
+// ============================= BACK - END [SUPABASE] =============================
 
 final supabase = Supabase.instance.client;
+final ImagePicker _picker = ImagePicker();
 
 Future<void> createStall({
   required String stallName,
   required String location,
   required String openTime,
   required String closeTime,
+  String? imageUrl,
 }) async {
   final user = supabase.auth.currentUser;
   if (user == null) throw Exception('User not logged in');
 
-  final response = await supabase.from('Stalls').insert({
-    'owner_id': user.id,
-    'stall_name': stallName,
-    'location': location,
-    'open_time': openTime,
-    'close_time': closeTime,
-  }).select();
+  try {
+    final response = await supabase.from('Stalls').insert({
+      'owner_id': user.id,
+      'stall_name': stallName,
+      'location': location,
+      'open_time': openTime,
+      'close_time': closeTime,
+      'image_url': imageUrl ?? "",
+    }).select();
 
-  if (response.isEmpty) {
-    throw Exception('Failed to insert stall');
+    if (response.isEmpty) {
+      throw Exception('Failed to insert stall');
+    }
+  } catch (e) {
+    throw Exception('Error creating stall: $e');
   }
 }
 
@@ -36,7 +44,8 @@ Future<String> uploadStallImage(File file) async {
   final user = supabase.auth.currentUser;
   if (user == null) throw Exception("User not logged in");
 
-  final fileName = "${DateTime.now().millisecondsSinceEpoch}${path.extension(file.path)}";
+  final fileName =
+      "${DateTime.now().millisecondsSinceEpoch}${path.extension(file.path)}";
   final filePath = "${user.id}/$fileName";
 
   try {
@@ -49,7 +58,6 @@ Future<String> uploadStallImage(File file) async {
     throw Exception("Image upload failed: $e");
   }
 }
-
 
 // =============================================================================
 
@@ -226,29 +234,6 @@ class _CreateStallPageState extends State<CreateStallPage> {
     );
   }
 
-  /// ===== Save Profile to Supabase =====
-  void _saveProfile() async {
-    final stallData = {
-      "stallName": _stallNameController.text,
-      "location": selectedLocation,
-      "openTime": formatTime(openTime),
-      "closeTime": formatTime(closeTime),
-      "imageUrl": imageUrl ?? "",
-    };
-
-    // 👇 BACKEND CODE HERE
-    // TODO: Use Supabase to insert/update stall data
-    // Example:
-    // final response = await Supabase.instance.client
-    //   .from('stalls')
-    //   .upsert(stallData)
-    //   .select();
-    //
-    // Handle success/error
-
-    print("Stall Data to Save: $stallData");
-  }
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -321,11 +306,27 @@ class _CreateStallPageState extends State<CreateStallPage> {
                                 color: Color.fromARGB(255, 109, 109, 109),
                               ),
                               onPressed: () async {
-                                // 👇 BACKEND CODE HERE
-                                // TODO: Open Image Picker
-                                // - Upload image to Supabase Storage
-                                // - Get public URL
-                                // - setState(() => imageUrl = uploadedUrl);
+                                try {
+                                  final XFile? pickedFile = await _picker
+                                      .pickImage(source: ImageSource.gallery);
+                                  if (pickedFile == null) return;
+
+                                  final File file = File(pickedFile.path);
+                                  final uploadedUrl = await uploadStallImage(
+                                    file,
+                                  );
+
+                                  setState(() {
+                                    imageUrl =
+                                        uploadedUrl; // ✅ will be saved to DB later
+                                  });
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Image upload failed: $e'),
+                                    ),
+                                  );
+                                }
                               },
                             ),
                           ),
@@ -612,7 +613,7 @@ class _CreateStallPageState extends State<CreateStallPage> {
                         final open = formatTime(openTime);
                         final close = formatTime(closeTime);
 
-                        if ((stallName?.isEmpty ?? true)) {
+                        if (stallName.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text("Please enter the stall name."),
@@ -621,7 +622,7 @@ class _CreateStallPageState extends State<CreateStallPage> {
                           return;
                         }
 
-                        if ((location?.isEmpty ?? true)) {
+                        if (location.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text("Please select a location."),
@@ -630,19 +631,12 @@ class _CreateStallPageState extends State<CreateStallPage> {
                           return;
                         }
 
-                        if (openTime == null) {
+                        if (openTime == null || closeTime == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text("Please select an opening time."),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (closeTime == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Please select a closing time."),
+                              content: Text(
+                                "Please select opening and closing times.",
+                              ),
                             ),
                           );
                           return;
@@ -654,6 +648,7 @@ class _CreateStallPageState extends State<CreateStallPage> {
                             location: location,
                             openTime: open,
                             closeTime: close,
+                            imageUrl: imageUrl, // ✅ use the correct field name
                           );
 
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -662,7 +657,6 @@ class _CreateStallPageState extends State<CreateStallPage> {
                             ),
                           );
 
-                          // Redirect to My Stall page
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
