@@ -1,7 +1,57 @@
+import 'dart:io';
+import 'package:path/path.dart' as path;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:haulam/screens/maintwo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../store_roof.dart';
+
+// ============================= BACK - END THINGS =============================
+
+final supabase = Supabase.instance.client;
+
+Future<void> createStall({
+  required String stallName,
+  required String location,
+  required String openTime,
+  required String closeTime,
+}) async {
+  final user = supabase.auth.currentUser;
+  if (user == null) throw Exception('User not logged in');
+
+  final response = await supabase.from('Stalls').insert({
+    'owner_id': user.id,
+    'stall_name': stallName,
+    'location': location,
+    'open_time': openTime,
+    'close_time': closeTime,
+  }).select();
+
+  if (response.isEmpty) {
+    throw Exception('Failed to insert stall');
+  }
+}
+
+Future<String> uploadStallImage(File file) async {
+  final user = supabase.auth.currentUser;
+  if (user == null) throw Exception("User not logged in");
+
+  final fileName = "${DateTime.now().millisecondsSinceEpoch}${path.extension(file.path)}";
+  final filePath = "${user.id}/$fileName";
+
+  try {
+    await supabase.storage
+        .from('stalls')
+        .upload(filePath, file, fileOptions: const FileOptions(upsert: true));
+
+    return supabase.storage.from('stalls').getPublicUrl(filePath);
+  } catch (e) {
+    throw Exception("Image upload failed: $e");
+  }
+}
+
+
+// =============================================================================
 
 class CreateStallPage extends StatefulWidget {
   const CreateStallPage({super.key});
@@ -556,9 +606,76 @@ class _CreateStallPageState extends State<CreateStallPage> {
                     const SizedBox(height: 30),
 
                     GestureDetector(
-                      onTap: () {
-                        // Your save logic here
+                      onTap: () async {
+                        final stallName = _stallNameController.text.trim();
+                        final location = selectedLocation ?? "";
+                        final open = formatTime(openTime);
+                        final close = formatTime(closeTime);
+
+                        if ((stallName?.isEmpty ?? true)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Please enter the stall name."),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if ((location?.isEmpty ?? true)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Please select a location."),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (openTime == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Please select an opening time."),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (closeTime == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Please select a closing time."),
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          await createStall(
+                            stallName: stallName,
+                            location: location,
+                            openTime: open,
+                            closeTime: close,
+                          );
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Stall created successfully!"),
+                            ),
+                          );
+
+                          // Redirect to My Stall page
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MainTwoScaffold(),
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text("Error: $e")));
+                        }
                       },
+
                       child: Container(
                         width: 318,
                         height: 46,
@@ -578,7 +695,6 @@ class _CreateStallPageState extends State<CreateStallPage> {
                         ),
                       ),
                     ),
-
                   ],
                 ),
               ),
