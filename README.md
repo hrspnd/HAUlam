@@ -4,7 +4,7 @@ Built with Flutter and powered by Supabase, it provides a smooth experience for 
 
 ## FEATURES
 - **Stall Discovery:** Browse through a list of food stalls.
-- **Search and Filter:** Find stalls by name, location, or category.
+- **Search and Filter:** Find dishes by name or category.
 - **Bookmarking:** Save your favorite stalls for easy access.
 - **User Authentication:** Secure sign-up and login using Supabase Auth.
 - **Dynamic Data:** Real-time updates powered by Supabase Database.
@@ -25,4 +25,5 @@ Built with Flutter and powered by Supabase, it provides a smooth experience for 
   
 **Tester:**
 - Enrico Jr. J. Buan
+
 
