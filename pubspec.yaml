@@ -39,6 +39,7 @@ dependencies:
   flutter_launcher_icons: ^0.14.4
   auto_size_text: ^3.0.0
   supabase_flutter: ^2.10.2
+  image_picker: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -103,4 +104,5 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
+
   image_path: "assets/icons/haulam-icon.png"
