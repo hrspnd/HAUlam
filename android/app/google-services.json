@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "740089896515",
+    "project_id": "haulam-6800e",
+    "storage_bucket": "haulam-6800e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:740089896515:android:a99ea27e58d1cbb1eebef6",
+        "android_client_info": {
+          "package_name": "com.example.haulam"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "740089896515-1v3k9tqrf7s02jr2kdoa4e0s5iqfu9k3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.haulam",
+            "certificate_hash": "f9db11c67c32c095808bb51189d8c1934a0197fe"
+          }
+        },
+        {
+          "client_id": "740089896515-3joucleb1n6o0fbmqsrts2qah8jq88r4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtONqzos4L24A6b_GygNdqzdaLJ44o1gg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "740089896515-3joucleb1n6o0fbmqsrts2qah8jq88r4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
