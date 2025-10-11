@@ -25,78 +25,84 @@ class _StallsPageState extends State<StallsPage> {
     fetchStalls();
   }
 
+// =========================== BACK - END [SUPABASE] ===========================
+
   Future<void> fetchStalls() async {
-  setState(() => isLoading = true);
+    setState(() => isLoading = true);
 
-  try {
-    final user = supabase.auth.currentUser;
-    if (user == null) {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      // Fetch all stalls
+      final stallsRes = await supabase.from('Stalls').select();
+
+      // Fetch current user's bookmarks
+      final bookmarksRes = await supabase
+          .from('Bookmarks')
+          .select('stall_id')
+          .eq('user_id', user.id);
+
+      final bookmarkedIds = (bookmarksRes as List)
+          .map((b) => b['stall_id'].toString())
+          .toSet();
+
+      setState(() {
+        stalls = (stallsRes as List).map<Stall>((stall) {
+          final isFav = bookmarkedIds.contains(stall['id'].toString());
+          return Stall(
+            id: stall['id'].toString(),
+            imagePath: stall['image_url'] ?? '',
+            title:
+                ((stall['stall_name'] ?? 'Unnamed Stall') +
+                        ' - ' +
+                        (stall['location'] ?? 'No Location'))
+                    .trim() ??
+                "Unnamed Stall",
+            status: (stall['is_open'] == true)
+                ? "Currently Open"
+                : "Currently Closed",
+            location: stall['location'] ?? "Unknown location",
+            isFavorited: isFav,
+          );
+        }).toList();
+
+        isLoading = false;
+      });
+    } catch (e) {
+      print("Error fetching stalls: $e");
       setState(() => isLoading = false);
-      return;
     }
-
-    // Fetch all stalls
-    final stallsRes = await supabase.from('Stalls').select();
-
-    // Fetch current user's bookmarks
-    final bookmarksRes = await supabase
-        .from('Bookmarks')
-        .select('stall_id')
-        .eq('user_id', user.id);
-
-    final bookmarkedIds =
-        (bookmarksRes as List).map((b) => b['stall_id'].toString()).toSet();
-
-    setState(() {
-      stalls = (stallsRes as List).map<Stall>((stall) {
-        final isFav = bookmarkedIds.contains(stall['id'].toString());
-        return Stall(
-          id: stall['id'].toString(),
-          imagePath: "assets/png/image-rectangle.png",
-          title: ((stall['stall_name'] ?? 'Unnamed Stall') +
-                      ' - ' +
-                      (stall['location'] ?? 'No Location'))
-                  .trim() ??
-              "Unnamed Stall",
-          status: (stall['is_open'] == true)
-              ? "Currently Open"
-              : "Currently Closed",
-          location: stall['location'] ?? "Unknown location",
-          isFavorited: isFav,
-        );
-      }).toList();
-      isLoading = false;
-    });
-  } catch (e) {
-    print("Error fetching stalls: $e");
-    setState(() => isLoading = false);
   }
-}
-
 
   Future<void> updateFavorite(String stallId, bool isFavorited) async {
-  final user = supabase.auth.currentUser;
-  if (user == null) return;
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
 
-  try {
-    if (isFavorited) {
-      // Add to bookmarks
-      await supabase.from('Bookmarks').insert({
-        'user_id': user.id,
-        'stall_id': stallId,
-      });
-    } else {
-      // Remove from bookmarks
-      await supabase
-          .from('Bookmarks')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('stall_id', stallId);
+    try {
+      if (isFavorited) {
+        // Add to bookmarks
+        await supabase.from('Bookmarks').insert({
+          'user_id': user.id,
+          'stall_id': stallId,
+        });
+      } else {
+        // Remove from bookmarks
+        await supabase
+            .from('Bookmarks')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('stall_id', stallId);
+      }
+    } catch (e) {
+      print("Error updating favorite: $e");
     }
-  } catch (e) {
-    print("Error updating favorite: $e");
   }
-}
+
+  // =============================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -217,12 +223,28 @@ class StallCard extends StatelessWidget {
               // Image with favorite button
               Stack(
                 children: [
-                  Image.asset(
-                    stall.imagePath,
-                    height: 120,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+                  (stall.imagePath.isNotEmpty)
+                      ? Image.network(
+                          stall.imagePath,
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Image.asset(
+                              'assets/png/image-rectangle.png',
+                              height: 120,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            );
+                          },
+                        )
+                      : Image.asset(
+                          'assets/png/image-rectangle.png',
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+
                   Positioned(
                     top: 14,
                     right: 14,
@@ -298,3 +320,229 @@ class StallCard extends StatelessWidget {
     );
   }
 }
+
+
+
+/* 
+
+===> LAST WORKING VERSION (NO-Backend) || October 9 12:00AM
+
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../store_roof.dart';
+import '../models/stalls_model.dart'; 
+
+// ====== Stalls Page ======
+class StallsPage extends StatefulWidget {
+  const StallsPage({super.key});
+
+  @override
+  State<StallsPage> createState() => _StallsPageState();
+}
+
+class _StallsPageState extends State<StallsPage> {
+  // Local stalls (later replaced by backend fetch)
+  List<Stall> stalls = [
+    Stall(
+      id: "1",
+      imagePath: "assets/png/stmartha-kirstenjoy.png",
+      title: "KIRSTENJOY - St. Martha Hall",
+      status: "Currently Open",
+      location: "St. Martha Hall",
+    ),
+    Stall(
+      id: "2",
+      imagePath: "assets/png/image-rectangle.png",
+      title: "Main Canteen - PGN Basement",
+      status: "Currently Open",
+      location: "PGN Basement",
+    ),
+  ];
+
+  Future<void> fetchStalls() async {
+    // TODO: Fetch from backend (Firebase, API, etc.)
+  }
+
+  Future<void> updateFavorite(String stallId, bool isFavorited) async {
+    // TODO: Update favorite status in backend
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final roofHeight = screenWidth * 0.48;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                top: roofHeight - 64,
+                left: 16,
+                right: 16,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(2, 50, 0, 10),
+                    child: Text(
+                      "Explore Canteen Stalls",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xff000000),
+                      ),
+                    ),
+                  ),
+
+                  // Stall list
+                  Transform.translate(
+                    offset: const Offset(0, -32),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: stalls.length,
+                      itemBuilder: (context, index) {
+                        final stall = stalls[index];
+                        return StallCard(
+                          stall: stall,
+                          onFavoriteToggle: (isFav) {
+                            setState(() {
+                              stalls[index] = Stall(
+                                id: stall.id,
+                                imagePath: stall.imagePath,
+                                title: stall.title,
+                                status: stall.status,
+                                location: stall.location,
+                                isFavorited: isFav,
+                              );
+                            });
+                            updateFavorite(stall.id, isFav);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Roof stays on top
+          const Positioned(top: 0, left: 0, right: 0, child: StoreRoof()),
+        ],
+      ),
+    );
+  }
+}
+
+// ====== Stall Card Widget ======
+class StallCard extends StatelessWidget {
+  final Stall stall;
+  final ValueChanged<bool> onFavoriteToggle;
+
+  const StallCard({
+    super.key,
+    required this.stall,
+    required this.onFavoriteToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Center(
+      child: Container(
+        width: screenWidth * 0.88,
+        margin: const EdgeInsets.only(bottom: 20), 
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          boxShadow: const [
+            BoxShadow(
+              color: Color.fromARGB(57, 0, 0, 0),
+              blurRadius: 6,
+              offset: Offset(0, 4),
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image with favorite button
+              Stack(
+                children: [
+                  Image.asset(
+                    stall.imagePath,
+                    height: 120,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    child: GestureDetector(
+                      onTap: () => onFavoriteToggle(!stall.isFavorited),
+                      child: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.white,
+                        child: SvgPicture.asset(
+                          stall.isFavorited
+                              ? "assets/icons/heart-red-selected.svg"
+                              : "assets/icons/heart-red-hollow.svg",
+                          width: 20,
+                          height: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Info section
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(23, 8, 8, 8),
+                decoration: const BoxDecoration(
+                  color: Color(0xff710E1D),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      stall.title,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      stall.status,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+*/
