@@ -18,8 +18,11 @@ Built with Flutter and powered by Supabase, it provides a smooth experience for 
 ## TEAM AND CREDITS
 **UI/UX Development Team:**
 - Maria Josephine M. Magat
-- Amber Kaia J. Rebusa 
+- Amber Kaia J. Rebusa
+  
 **Backend Developer:**
 - Mary Alexa Ysabelle V. Pineda
+  
 **Tester:**
 - Enrico Jr. J. Buan
+
