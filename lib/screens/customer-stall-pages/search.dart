@@ -20,7 +20,31 @@ class _SearchPageState extends State<SearchPage> {
       'stall': 'KIRSTENJOY',
       'image': 'assets/png/tocino.png',
     },
-    {'name': 'Tocilog', 'stall': 'MAMAMO', 'image': 'assets/png/tocilog.png'},
+    {
+      'name': 'Tapsilog',
+      'stall': 'KIRSTENJOY',
+      'image': 'assets/png/tocino.png',
+    },
+    {
+      'name': 'Tapsilog',
+      'stall': 'KIRSTENJOY',
+      'image': 'assets/png/tocino.png',
+    },
+    {
+      'name': 'Tapsilog',
+      'stall': 'KIRSTENJOY',
+      'image': 'assets/png/tocino.png',
+    },
+    {
+      'name': 'Tapsilog',
+      'stall': 'KIRSTENJOY',
+      'image': 'assets/png/tocino.png',
+    },
+    {
+      'name': 'Tapsilog',
+      'stall': 'KIRSTENJOY',
+      'image': 'assets/png/tocino.png',
+    },
   ];
 
   void _onSearchChanged(String value) {
@@ -142,6 +166,12 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                 ),
               ),
+            ),
+
+            Divider(
+              color: Color(0xFFC5C5C5), // Line color
+              thickness: 1, // Line thickness
+              // height: 20,  // Space around the line
             ),
 
             // Grid of Search Results
