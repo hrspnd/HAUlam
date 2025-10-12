@@ -1,9 +1,13 @@
+
+// CUSTOMER STALL DISHES VIEW
+// --- hardcoded data code
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import '../store_roof.dart';
-import '../models/stalls_model.dart';
-import '../models/menu_item.dart';
+import '../../models/stalls_model.dart';
+import '../../models/menu_item.dart';
 
 class StallDishesPage extends StatefulWidget {
   final Stall stall;
