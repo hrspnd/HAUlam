@@ -23,7 +23,7 @@ class _AccountPageState extends State<AccountPage> {
   String firstName = "User";
   String email = "No Email";
   String? photoUrl;
-
+  /*
   void _loadUser() {
     final user = supabase.auth.currentUser;
     if (user != null) {
@@ -47,6 +47,78 @@ class _AccountPageState extends State<AccountPage> {
       });
     }
   }
+  */
+
+  Future<void> _loadUser() async {
+    setState(() => isLoading = true);
+
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      final profileRes = await supabase
+          .from('Profiles')
+          .select('name, email, profile_picture_url')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final profile = profileRes;
+
+      setState(() {
+        // Check from Profiles table first
+        final dbName = (profile?['name'] as String?)?.trim();
+
+        // Fallback to userMetadata if dbName is empty or null
+        final metaName =
+            user.userMetadata?['name'] ??
+            ((user.userMetadata?['first_name'] ?? '') +
+                    ' ' +
+                    (user.userMetadata?['last_name'] ?? ''))
+                .trim();
+
+        // Final value
+        firstName = (dbName != null && dbName.isNotEmpty)
+            ? dbName
+            : (metaName != null && metaName.isNotEmpty ? metaName : 'User');
+
+        email = (profile?['email'] as String?) ?? user.email ?? 'No Email';
+
+        photoUrl = (profile?['profile_picture_url'] as String?)?.trim();
+
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Failed to load profile: $e');
+      setState(() => isLoading = false);
+    }
+  }
+
+  /*  
+  void _loadUser() {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      final metadata = user.userMetadata ?? {};
+
+      setState(() {
+        firstName =
+            metadata['name'] ??
+            ('${metadata['first_name'] ?? ''} ${metadata['last_name'] ?? ''}')
+                .trim();
+        email = user.email ?? 'No Email';
+        photoUrl = metadata['image_url'];
+        isLoading = false;
+      });
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  */
 
   void logout() async {
     await authService.signOut();
@@ -114,11 +186,13 @@ class _AccountPageState extends State<AccountPage> {
                         children: [
                           CircleAvatar(
                             radius: 28,
-                            backgroundImage: photoUrl != null
+                            backgroundImage:
+                                (photoUrl != null && photoUrl!.isNotEmpty)
                                 ? NetworkImage(photoUrl!)
                                 : const AssetImage("assets/png/no-profile.png")
                                       as ImageProvider,
                           ),
+
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
@@ -160,6 +234,7 @@ class _AccountPageState extends State<AccountPage> {
                                   builder: (context) => const EditAccountPage(),
                                 ),
                               );
+                              _loadUser();
                             },
                             icon: Image.asset(
                               "assets/png/edit-icon.png",
