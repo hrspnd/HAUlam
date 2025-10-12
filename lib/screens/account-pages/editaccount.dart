@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as path;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditAccountPage extends StatefulWidget {
   const EditAccountPage({super.key});
@@ -8,7 +11,111 @@ class EditAccountPage extends StatefulWidget {
   State<EditAccountPage> createState() => _EditAccountPageState();
 }
 
+final supabase = Supabase.instance.client;
+
 class _EditAccountPageState extends State<EditAccountPage> {
+  // =========================== BACK - END [SUPABASE] ===========================
+  File? _selectedImage;
+  String? _imageUrl;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
+
+  /*
+  Future<String?> _uploadProfilePicture(File file) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) throw Exception("User not logged in");
+
+    final fileName =
+        "${user.id}_${DateTime.now().millisecondsSinceEpoch}${path.extension(file.path)}";
+
+    // Upload to Supabase Storage
+    await Supabase.instance.client.storage
+        .from('profilepictures')
+        .upload(fileName, file);
+
+    // Get public URL
+    final publicUrl = Supabase.instance.client.storage
+        .from('profilepictures')
+        .getPublicUrl(fileName);
+
+    return publicUrl;
+  }
+
+*/
+
+  Future<String?> _uploadProfilePicture(File file) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception("User not logged in");
+
+    // ✅ Unique file name based on user id and timestamp
+    final fileName =
+        "${user.id}_${DateTime.now().millisecondsSinceEpoch}${path.extension(file.path)}";
+
+    // ✅ Upload to "profilepictures" bucket
+    await supabase.storage.from('profilepictures').upload(fileName, file);
+
+    // ✅ Get public URL
+    final publicUrl = supabase.storage
+        .from('profilepictures')
+        .getPublicUrl(fileName);
+
+    return publicUrl;
+  }
+
+  Future<void> _updateUserPicture(String imageUrl) async {
+    await supabase.auth.updateUser(UserAttributes(data: {'picture': imageUrl}));
+  }
+
+  Future<void> _saveProfile() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) throw Exception("User not logged in");
+
+      final fullName =
+          "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}";
+      final newEmail = _emailController.text.trim();
+
+      String? imageUrl;
+      if (_selectedImage != null) {
+        imageUrl = await _uploadProfilePicture(_selectedImage!);
+      }
+
+      // 1. Update Auth email
+      await supabase.auth.updateUser(UserAttributes(email: newEmail));
+
+      // 2. Update Profiles table
+      final updateData = {
+        'name': fullName,
+        'email': newEmail,
+        if (imageUrl != null) 'profile_picture_url': imageUrl,
+      };
+
+      await supabase.from('Profiles').update(updateData).eq('id', user.id);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully!')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  // =============================================================================
+
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -104,10 +211,11 @@ class _EditAccountPageState extends State<EditAccountPage> {
                       border: Border.all(color: Color(0xff65000F), width: 4),
                     ),
                     child: CircleAvatar(
-                      backgroundColor: Color(0xffE0E0E0),
-                      backgroundImage: const AssetImage(
-                        "assets/png/no-profile.png",
-                      ),
+                      backgroundColor: const Color(0xffE0E0E0),
+                      backgroundImage: _selectedImage != null
+                          ? FileImage(_selectedImage!)
+                          : const AssetImage("assets/png/no-profile.png")
+                                as ImageProvider,
                     ),
                   ),
 
@@ -129,9 +237,7 @@ class _EditAccountPageState extends State<EditAccountPage> {
                           size: 20,
                           color: Color.fromARGB(255, 109, 109, 109),
                         ),
-                        onPressed: () {
-                          // TODO: Implement photo picking
-                        },
+                        onPressed: _pickImage,
                       ),
                     ),
                   ),
@@ -182,8 +288,7 @@ class _EditAccountPageState extends State<EditAccountPage> {
                       onPressed: () {
                         showDialog(
                           context: context,
-                          barrierDismissible:
-                              true, // allow tapping outside
+                          barrierDismissible: true, // allow tapping outside
                           builder: (BuildContext context) {
                             return Dialog(
                               shape: RoundedRectangleBorder(
@@ -242,9 +347,90 @@ class _EditAccountPageState extends State<EditAccountPage> {
 
                                         // Save Changes button
                                         ElevatedButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            // TODO: Implement save functionality here
+                                          onPressed: () async {
+                                            final user =
+                                                supabase.auth.currentUser;
+                                            if (user == null) return;
+
+                                            try {
+                                              // ✅ 1. Upload profile picture if selected
+                                              String? uploadedUrl;
+                                              if (_selectedImage != null) {
+                                                uploadedUrl =
+                                                    await _uploadProfilePicture(
+                                                      _selectedImage!,
+                                                    );
+                                              }
+
+                                              // ✅ 2. Get input values
+                                              final firstName =
+                                                  _firstNameController.text
+                                                      .trim();
+                                              final lastName =
+                                                  _lastNameController.text
+                                                      .trim();
+                                              final newEmail = _emailController
+                                                  .text
+                                                  .trim();
+                                              final fullName =
+                                                  '$firstName $lastName'.trim();
+
+                                              // ✅ 3. Upload image (if new)
+                                              if (_selectedImage != null) {
+                                                uploadedUrl =
+                                                    await _uploadProfilePicture(
+                                                      _selectedImage!,
+                                                    );
+                                              }
+
+                                              // ✅ 4. Build update map
+                                              final updateData =
+                                                  <String, dynamic>{};
+
+                                              if (firstName.isNotEmpty)
+                                                updateData['first_name'] =
+                                                    firstName;
+                                              if (lastName.isNotEmpty)
+                                                updateData['last_name'] =
+                                                    lastName;
+                                              if (uploadedUrl != null)
+                                                updateData['profile_picture_url'] =
+                                                    uploadedUrl;
+
+                                              // ✅ 5. Update Profiles table
+                                              await supabase
+                                                  .from('Profiles')
+                                                  .update({
+                                                    'name':
+                                                        '$firstName $lastName',
+                                                    'email': newEmail.isNotEmpty
+                                                        ? newEmail
+                                                        : user.email,
+                                                    if (uploadedUrl != null)
+                                                      'profile_picture_url':
+                                                          uploadedUrl,
+                                                  })
+                                                  .eq('id', user.id);
+
+                                              // ✅ 6. Navigate back to Account Page
+                                              if (context.mounted) {
+                                                Navigator.pop(context);
+                                                Navigator.pop(context);
+                                              }
+                                            } catch (e) {
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'Error updating profile: $e',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              }
+                                            }
                                           },
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: const Color(
