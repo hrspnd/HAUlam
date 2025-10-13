@@ -2,7 +2,7 @@
 
 LATEST COMMIT October 13
 Latest Changes:
---- added stall names from supabase
+--- added widgets for dishes
 
 */
 
@@ -12,6 +12,9 @@ import 'package:auto_size_text/auto_size_text.dart';
 import '../store_roof.dart';
 import '../../models/stalls_model.dart';
 import '../../models/menu_item.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final supabase = Supabase.instance.client;
 
 class StallDishesPage extends StatefulWidget {
   final Stall stall;
@@ -69,45 +72,33 @@ class _StallDishesPageState extends State<StallDishesPage> {
     {"label": "Vegetable", "color": const Color(0xff81C784)},
   ];
 
-  List<MenuItem> menuItems = [
-    MenuItem(
-      id: "1",
-      name: "Tapsilog",
-      imagePath: "assets/png/image-square.png",
-    ),
-    MenuItem(
-      id: "2",
-      name: "Tocilog",
-      imagePath: "assets/png/image-square.png",
-    ),
-    MenuItem(
-      id: "3",
-      name: "Beef Kaldereta",
-      imagePath: "assets/png/image-square.png",
-    ),
-    MenuItem(
-      id: "4",
-      name: "Beef Mushroom",
-      imagePath: "assets/png/image-square.png",
-    ),
-    MenuItem(
-      id: "5",
-      name: "Beef Broccoli",
-      imagePath: "assets/png/image-square.png",
-      isAvailable: false,
-    ),
-    MenuItem(
-      id: "6",
-      name: "Beef Steak",
-      imagePath: "assets/png/image-square.png",
-      isAvailable: false,
-    ),
-  ];
+  List<MenuItem> menuItems = [];
+  bool loading = true;
+
+  Future<void> _loadDishes() async {
+    try {
+      final rows = await supabase
+          .from('Dishes')
+          .select()
+          .eq('stall_id', widget.stall.id); 
+
+      setState(() {
+        menuItems = (rows as List)
+            .map((e) => MenuItem.fromMap(e as Map<String, dynamic>))
+            .toList();
+        loading = false;
+      });
+    } catch (e) {
+      // optional: handle errors
+      setState(() => loading = false);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     isFavorited = widget.stall.isFavorited;
+    _loadDishes();
   }
 
   void _toggleOverlay() {
@@ -126,7 +117,13 @@ class _StallDishesPageState extends State<StallDishesPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
+      body: loading
+      ? const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF710E1D),  
+          ),
+        )
+      : Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
@@ -242,9 +239,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
                     // ===== Filter Row =====
                     Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: 600,
-                        ), 
+                        constraints: const BoxConstraints(maxWidth: 600),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -258,7 +253,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
                                   runSpacing: 10,
                                   children: [
                                     _buildFilterButton(),
-                                    ..._buildVisibleTags(), 
+                                    ..._buildVisibleTags(),
                                   ],
                                 ),
                               ),
@@ -291,10 +286,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
                       child: Column(
                         children: [
                           Transform.translate(
-                            offset: const Offset(
-                              0,
-                              -22,
-                            ), 
+                            offset: const Offset(0, -22),
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                               child: GridView.builder(
@@ -310,8 +302,9 @@ class _StallDishesPageState extends State<StallDishesPage> {
                                     ),
                                 itemBuilder: (context, index) {
                                   final item = menuItems[index];
+
                                   return Opacity(
-                                    opacity: item.isAvailable ? 1 : 0.4,
+                                    opacity: item.available ? 1 : 0.4,
                                     child: Container(
                                       decoration: BoxDecoration(
                                         color: Colors.white,
@@ -338,12 +331,21 @@ class _StallDishesPageState extends State<StallDishesPage> {
                                                   topLeft: Radius.circular(12),
                                                   topRight: Radius.circular(12),
                                                 ),
-                                            child: Image.asset(
-                                              item.imagePath,
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                              height: 122,
-                                            ),
+                                            child:
+                                                (item.imageUrl != null &&
+                                                    item.imageUrl!.isNotEmpty)
+                                                ? Image.network(
+                                                    item.imageUrl!,
+                                                    fit: BoxFit.cover,
+                                                    width: double.infinity,
+                                                    height: 122,
+                                                  )
+                                                : Image.asset(
+                                                    'assets/png/image-square.png',
+                                                    fit: BoxFit.cover,
+                                                    width: double.infinity,
+                                                    height: 122,
+                                                  ),
                                           ),
                                           Container(
                                             width: double.infinity,
@@ -353,7 +355,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
                                           Padding(
                                             padding: const EdgeInsets.all(6.0),
                                             child: Text(
-                                              item.name,
+                                              item.dishName, // from DB
                                               style: const TextStyle(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w500,
@@ -477,7 +479,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
           crossAxisCount: 2,
           crossAxisSpacing: 8,
           mainAxisSpacing: 2,
-          mainAxisExtent: 46, 
+          mainAxisExtent: 46,
         ),
         children: filters.map((filter) {
           final String label = filter["label"] as String;
@@ -510,7 +512,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: const Color(0xFF710E1D),
-                        width: isSelected ? 3 : 1.2, 
+                        width: isSelected ? 3 : 1.2,
                       ),
                       boxShadow: const [
                         BoxShadow(
@@ -579,18 +581,18 @@ class _StallDishesPageState extends State<StallDishesPage> {
             } else {
               selectedFilters.add(label);
             }
-          }); 
+          });
         },
         child: Container(
-          width: 102, 
+          width: 102,
           height: 32,
           padding: const EdgeInsets.only(left: 10, right: 8),
           decoration: BoxDecoration(
-            color: Colors.white, 
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: const Color(0xFF710E1D),
-              width: isSelected ? 3 : 1.2, 
+              width: isSelected ? 3 : 1.2,
             ),
             boxShadow: const [
               BoxShadow(
@@ -605,7 +607,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
             children: [
               Container(
                 width: 16,
-                height: 16, 
+                height: 16,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
