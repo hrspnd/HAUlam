@@ -189,7 +189,7 @@ class _VendorStallPageState extends State<VendorStallPage> {
                                         );
                                       },
                                       child: Transform.translate(
-                                          offset: Offset(12, 0),            // <------- Problem here
+                                          offset: Offset(-20, 2),       // <----- Problem here
                                           child: Container(
                                           padding: const EdgeInsets.all(6),
                                           decoration: BoxDecoration(
