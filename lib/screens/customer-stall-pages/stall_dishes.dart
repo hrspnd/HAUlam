@@ -1,6 +1,10 @@
+/*
 
-// CUSTOMER STALL DISHES VIEW
-// --- hardcoded data code
+LATEST COMMIT October 13
+Latest Changes:
+--- added stall names from supabase
+
+*/
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -21,8 +25,32 @@ class StallDishesPage extends StatefulWidget {
 class _StallDishesPageState extends State<StallDishesPage> {
   late bool isFavorited;
   bool isFilterOpen = false;
-  OverlayEntry? _overlayEntry;
-  final LayerLink _layerLink = LayerLink();
+  static const List<String> _defaultFixed = ["Beef", "Chicken"];
+
+  List<String> _getVisibleTagLabels() {
+    if (selectedFilters.isEmpty) {
+      return _defaultFixed;
+    }
+
+    final int len = selectedFilters.length;
+    final List<String> lastTwo = len >= 2
+        ? selectedFilters.sublist(len - 2)
+        : [selectedFilters.last];
+
+    if (lastTwo.length == 2) return lastTwo;
+
+    final String only = lastTwo.first;
+    final String fallback = _defaultFixed.firstWhere(
+      (d) => d != only,
+      orElse: () => _defaultFixed.first,
+    );
+    return [only, fallback];
+  }
+
+  List<Widget> _buildVisibleTags() {
+    final labels = _getVisibleTagLabels();
+    return labels.map((l) => _buildFixedChoiceTag(l)).toList();
+  }
 
   List<String> selectedFilters = [];
 
@@ -83,55 +111,11 @@ class _StallDishesPageState extends State<StallDishesPage> {
   }
 
   void _toggleOverlay() {
-    if (isFilterOpen) {
-      _removeOverlay();
-    } else {
-      _showOverlay();
-    }
     setState(() => isFilterOpen = !isFilterOpen);
-  }
-
-  void _showOverlay() {
-  _overlayEntry = OverlayEntry(
-    builder: (context) {
-      return Stack(
-        children: [
-          // Tap outside to close the dropdown
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _toggleOverlay,
-              behavior: HitTestBehavior.translucent,
-            ),
-          ),
-          // Fixed dropdown
-          Positioned(
-            top: 300, // adjust to appear below filter row
-            left: 16,
-            right: 16,
-            child: Material(
-              borderRadius: BorderRadius.circular(20),
-              color: Colors.white,
-              elevation: 0,
-              child: _buildDropdownFilters(),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-
-  Overlay.of(context).insert(_overlayEntry!);
-}
-
-
-  void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
   }
 
   @override
   void dispose() {
-    if (isFilterOpen) _removeOverlay();
     super.dispose();
   }
 
@@ -192,7 +176,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
                                 Padding(
                                   padding: const EdgeInsets.only(top: 6),
                                   child: AutoSizeText(
-                                    widget.stall.title,
+                                    widget.stall.stallName,
                                     style: const TextStyle(
                                       fontSize: 28,
                                       fontWeight: FontWeight.w600,
@@ -257,99 +241,135 @@ class _StallDishesPageState extends State<StallDishesPage> {
 
                     // ===== Filter Row =====
                     Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: CompositedTransformTarget(
-                          link: _layerLink,
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              _buildFilterButton(),
-                              ..._buildActiveTags(),
-                            ],
-                          ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 600,
+                        ), 
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: Center(
+                                child: Wrap(
+                                  alignment: WrapAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    _buildFilterButton(),
+                                    ..._buildVisibleTags(), 
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeInOut,
+                              child: isFilterOpen
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 0,
+                                        ),
+                                        child: _buildDropdownFilters(),
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 24),
-
                     // ===== Menu Grid =====
-                    Transform.translate(
-                      offset: const Offset(0, -40),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: menuItems.length,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 0.9,
-                                crossAxisSpacing: 23,
-                                mainAxisSpacing: 23,
-                              ),
-                          itemBuilder: (context, index) {
-                            final item = menuItems[index];
-                            return Opacity(
-                              opacity: item.isAvailable ? 1 : 0.4,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(
-                                    color: const Color(0xFF710E1D),
-                                    width: 1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x25000000),
-                                      offset: Offset(0, 4),
-                                      blurRadius: 4,
+                    ClipRect(
+                      child: Column(
+                        children: [
+                          Transform.translate(
+                            offset: const Offset(
+                              0,
+                              -22,
+                            ), 
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                              child: GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: menuItems.length,
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      childAspectRatio: 0.9,
+                                      crossAxisSpacing: 23,
+                                      mainAxisSpacing: 23,
                                     ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: const BorderRadius.only(
-                                        topLeft: Radius.circular(12),
-                                        topRight: Radius.circular(12),
-                                      ),
-                                      child: Image.asset(
-                                        item.imagePath,
-                                        fit: BoxFit.cover,
-                                        width: double.infinity,
-                                        height: 122,
-                                      ),
-                                    ),
-                                    Container(
-                                      width: double.infinity,
-                                      height: 1,
-                                      color: const Color(0xff710E1D),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(6.0),
-                                      child: Text(
-                                        item.name,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
+                                itemBuilder: (context, index) {
+                                  final item = menuItems[index];
+                                  return Opacity(
+                                    opacity: item.isAvailable ? 1 : 0.4,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        border: Border.all(
+                                          color: const Color(0xFF710E1D),
+                                          width: 1,
                                         ),
-                                        textAlign: TextAlign.center,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x25000000),
+                                            offset: Offset(0, 4),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  topLeft: Radius.circular(12),
+                                                  topRight: Radius.circular(12),
+                                                ),
+                                            child: Image.asset(
+                                              item.imagePath,
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: 122,
+                                            ),
+                                          ),
+                                          Container(
+                                            width: double.infinity,
+                                            height: 1,
+                                            color: const Color(0xff710E1D),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(6.0),
+                                            child: Text(
+                                              item.name,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -388,50 +408,53 @@ class _StallDishesPageState extends State<StallDishesPage> {
 
   // ==== Filter Button ====
   Widget _buildFilterButton() {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _toggleOverlay,
-      child: Container(
-        height: 32, // ✅ fixed height for perfect uniformity
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFF710E1D), width: 1),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x25000000),
-              offset: Offset(0, 4),
-              blurRadius: 4,
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF710E1D), width: 1),
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: _toggleOverlay,
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFF710E1D), width: 1),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x25000000),
+                offset: Offset(0, 4),
+                blurRadius: 4,
               ),
-              child: Center(
-                child: SvgPicture.asset(
-                  "assets/icons/filter-button.svg",
-                  width: 10,
-                  height: 10,
-                  color: const Color(0xFF710E1D),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF710E1D), width: 1),
+                ),
+                child: Center(
+                  child: SvgPicture.asset(
+                    "assets/icons/filter-button.svg",
+                    width: 10,
+                    height: 10,
+                    color: const Color(0xFF710E1D),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            const Text(
-              "Filter",
-              style: TextStyle(fontSize: 12, color: Colors.black),
-            ),
-          ],
+              const SizedBox(width: 6),
+              const Text(
+                "Filter",
+                style: TextStyle(fontSize: 12, color: Colors.black),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -440,75 +463,91 @@ class _StallDishesPageState extends State<StallDishesPage> {
   // ==== Dropdown Filters ====
   Widget _buildDropdownFilters() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: const Color(0xFF710E1D), width: 1),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: GridView.count(
-        crossAxisCount: 3,
+      child: GridView(
+        padding: EdgeInsets.zero,
         shrinkWrap: true,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 2.8,
         physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 2,
+          mainAxisExtent: 46, 
+        ),
         children: filters.map((filter) {
-          final isSelected = selectedFilters.contains(filter["label"]);
-          return GestureDetector(
-            onTap: () {
-  setState(() {
-    if (isSelected) {
-      selectedFilters.remove(filter["label"]);
-    } else {
-      if (!selectedFilters.contains(filter["label"])) {
-        selectedFilters.add(filter["label"]);
-      }
-    }
+          final String label = filter["label"] as String;
+          final Color color = filter["color"] as Color;
+          final bool isSelected = selectedFilters.contains(label);
 
-    // 🔹 Refresh the overlay so changes are visible immediately
-    _overlayEntry?.remove();
-    _showOverlay();
-  });
-},
-
-
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFFFE6E6) : Colors.white,
+          return Align(
+            alignment: Alignment.center,
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFF710E1D),
-                  width: isSelected ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    margin: const EdgeInsets.only(right: 6),
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      selectedFilters.remove(label);
+                    } else {
+                      selectedFilters.add(label);
+                    }
+                  });
+                },
+                child: SizedBox(
+                  width: 135,
+                  height: 33,
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 10, right: 8),
                     decoration: BoxDecoration(
-                      color: filter["color"],
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  Flexible(
-                    child: Text(
-                      filter["label"],
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF710E1D),
+                        width: isSelected ? 3 : 1.2, 
                       ),
-                      overflow: TextOverflow.ellipsis,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x25000000),
+                          offset: Offset(0, 4),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           );
@@ -517,74 +556,131 @@ class _StallDishesPageState extends State<StallDishesPage> {
     );
   }
 
-  // ==== Active Tags ====
-  List<Widget> _buildActiveTags() {
-    final activeFilters = selectedFilters.isNotEmpty
-    ? selectedFilters.take(2).toList()
-    : ["Beef", "Chicken"];
-    return activeFilters.map((label) {
+  // ==== Fixed Choice Tag ====
+  Widget _buildFixedChoiceTag(String label) {
+    final color =
+        (filters.firstWhere(
+              (f) => f["label"] == label,
+              orElse: () => {"color": const Color(0xFF710E1D)},
+            )["color"]
+            as Color);
+
+    final isSelected = selectedFilters.contains(label);
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          setState(() {
+            if (isSelected) {
+              selectedFilters.remove(label);
+            } else {
+              selectedFilters.add(label);
+            }
+          }); 
+        },
+        child: Container(
+          width: 102, 
+          height: 32,
+          padding: const EdgeInsets.only(left: 10, right: 8),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFF710E1D),
+              width: isSelected ? 3 : 1.2, 
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x25000000),
+                offset: Offset(0, 4),
+                blurRadius: 4,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Container(
+                width: 16,
+                height: 16, 
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Colors.black),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==== Additional Selected Tags (from dropdown) ====
+  List<Widget> _buildSelectedTags() {
+    final dynamicTags = selectedFilters
+        .where((label) => label != "Beef" && label != "Chicken")
+        .toList();
+
+    return dynamicTags.map((label) {
       final color =
-          filters.firstWhere(
+          (filters.firstWhere(
                 (f) => f["label"] == label,
                 orElse: () => {"color": const Color(0xFF710E1D)},
               )["color"]
-              as Color;
-      final isSelected = selectedFilters.contains(label);
-      return _buildFixedTag(label, color, isSelected);
-    }).toList();
-  }
+              as Color);
 
-  Widget _buildFixedTag(String label, Color color, bool isSelected) {
-  return GestureDetector(
-    onTap: () {
-  setState(() {
-    if (isSelected) {
-      selectedFilters.remove(label); // deselect
-    }
-    // ❌ remove the "else" part — no re-adding here
-  });
-},
-
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      width: 102,
-      height: 32,
-      padding: const EdgeInsets.only(left: 10, right: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFFFE6E6) : Colors.white,
+      return Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFF710E1D),
-          width: isSelected ? 2 : 1.2,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x25000000),
-            offset: Offset(0, 4),
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.black,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            setState(() {
+              selectedFilters.remove(label);
+            });
+          },
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFF710E1D), width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x25000000),
+                  offset: Offset(0, 4),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 12, color: Colors.black),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
+    }).toList();
+  }
 }
-}
+// */
