@@ -12,7 +12,7 @@ class Stall {
     required this.title,
     required this.status,
     this.isFavorited = false,
-    required this.location, 
+    required this.location,
   });
 
   factory Stall.fromMap(Map<String, dynamic> data, String id) {
@@ -32,7 +32,25 @@ class Stall {
       'title': title,
       'status': status,
       'isFavorited': isFavorited,
-      'location': location, 
+      'location': location,
     };
+  }
+
+  Stall copyWith({
+    String? id,
+    String? imagePath,
+    String? title,
+    String? status,
+    bool? isFavorited,
+    String? location,
+  }) {
+    return Stall(
+      id: id ?? this.id,
+      imagePath: imagePath ?? this.imagePath,
+      title: title ?? this.title,
+      status: status ?? this.status,
+      isFavorited: isFavorited ?? this.isFavorited,
+      location: location ?? this.location,
+    );
   }
 }
