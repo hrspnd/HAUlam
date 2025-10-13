@@ -5,6 +5,7 @@ class Stall {
   final String status;
   final bool isFavorited;
   final String location;
+  final String stallName; 
 
   Stall({
     required this.id,
@@ -13,6 +14,7 @@ class Stall {
     required this.status,
     this.isFavorited = false,
     required this.location,
+    required this.stallName, 
   });
 
   factory Stall.fromMap(Map<String, dynamic> data, String id) {
@@ -23,6 +25,7 @@ class Stall {
       status: data['status'] ?? 'Closed',
       isFavorited: data['isFavorited'] ?? false,
       location: data['location'] ?? '',
+      stallName: data['stallName'] ?? '', 
     );
   }
 
@@ -33,6 +36,7 @@ class Stall {
       'status': status,
       'isFavorited': isFavorited,
       'location': location,
+      'stallName': stallName, 
     };
   }
 
@@ -43,6 +47,7 @@ class Stall {
     String? status,
     bool? isFavorited,
     String? location,
+    String? stallName, 
   }) {
     return Stall(
       id: id ?? this.id,
@@ -51,6 +56,7 @@ class Stall {
       status: status ?? this.status,
       isFavorited: isFavorited ?? this.isFavorited,
       location: location ?? this.location,
+      stallName: stallName ?? this.stallName,
     );
   }
 }
