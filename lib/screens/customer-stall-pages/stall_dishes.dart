@@ -1,14 +1,14 @@
 /*
 
-LATEST COMMIT October 13
-Latest Changes:
---- added widgets for dishes
+LATEST COMMIT October 14
+
 
 */
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:haulam/screens/customer-stall-pages/stall_dish_view.dart';
 import '../store_roof.dart';
 import '../../models/stalls_model.dart';
 import '../../models/menu_item.dart';
@@ -26,6 +26,8 @@ class StallDishesPage extends StatefulWidget {
 }
 
 class _StallDishesPageState extends State<StallDishesPage> {
+  bool _bookmarkBusy = false;
+
   late bool isFavorited;
   bool isFilterOpen = false;
   static const List<String> _defaultFixed = ["Beef", "Chicken"];
@@ -80,7 +82,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
       final rows = await supabase
           .from('Dishes')
           .select()
-          .eq('stall_id', widget.stall.id); 
+          .eq('stall_id', widget.stall.id);
 
       setState(() {
         menuItems = (rows as List)
@@ -93,11 +95,77 @@ class _StallDishesPageState extends State<StallDishesPage> {
       setState(() => loading = false);
     }
   }
+Future<void> _loadIsBookmarked() async {
+  try {
+    final user = supabase.auth.currentUser;
+    if (user == null) return; // leave default
+
+    final row = await supabase
+        .from('Bookmarks')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('stall_id', widget.stall.id)
+        .maybeSingle();
+
+    if (!mounted) return;
+    setState(() {
+      isFavorited = row != null;
+    });
+  } catch (_) {
+    // ignore silently or show a lightweight toast/snackbar if you prefer
+  }
+}
+Future<void> _toggleFavorite() async {
+  if (_bookmarkBusy) return;
+
+  final user = supabase.auth.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please sign in to use bookmarks')),
+    );
+    return;
+  }
+
+  final newValue = !isFavorited;
+
+  setState(() {
+    _bookmarkBusy = true;
+    isFavorited = newValue; // optimistic
+  });
+
+  try {
+    if (newValue) {
+      await supabase.from('Bookmarks').insert({
+        'user_id': user.id,
+        'stall_id': widget.stall.id,
+      });
+    } else {
+      await supabase
+          .from('Bookmarks')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('stall_id', widget.stall.id);
+    }
+  } catch (e) {
+    // revert on failure
+    if (!mounted) return;
+    setState(() => isFavorited = !newValue);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Could not update bookmark: $e')),
+    );
+  } finally {
+    if (!mounted) return;
+    setState(() => _bookmarkBusy = false);
+  }
+}
+
 
   @override
   void initState() {
     super.initState();
     isFavorited = widget.stall.isFavorited;
+    _loadIsBookmarked();
+
     _loadDishes();
   }
 
@@ -118,293 +186,399 @@ class _StallDishesPageState extends State<StallDishesPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: loading
-      ? const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF710E1D),  
-          ),
-        )
-      : Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(top: roofHeight - 30),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 20,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ===== Stall Header =====
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Transform.translate(
-                          offset: const Offset(10, 0),
-                          child: Container(
-                            width: 67,
-                            height: 67,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(0xFF710E1D),
-                                width: 2,
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF710E1D)),
+            )
+          : Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(top: roofHeight - 30),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 20,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ===== Stall Header =====
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Transform.translate(
+                                offset: const Offset(10, 0),
+                                child: Container(
+                                  width: 67,
+                                  height: 67,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFF710E1D),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: (widget.stall.imagePath.isNotEmpty)
+                                        ? Image.network(
+                                            widget.stall.imagePath,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                                  // fallback if image fails to load
+                                                  return Image.asset(
+                                                    'assets/png/image-square.png',
+                                                    fit: BoxFit.cover,
+                                                  );
+                                                },
+                                          )
+                                        : Image.asset(
+                                            'assets/png/image-square.png',
+                                            fit: BoxFit.cover,
+                                          ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.asset(
-                                'assets/png/image-square.png',
-                                fit: BoxFit.cover,
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: 210,
+                                height: 80,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 8, top: 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(
+                                        width: 180,
+                                        child: Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: AutoSizeText(
+                                          widget.stall.stallName,
+                                          style: const TextStyle(
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black,
+                                          ),
+                                          maxLines: 1,
+                                          minFontSize: 26,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      ),
+                                      Transform.translate(
+                                        offset: const Offset(0, -8),
+                                        child: Text(
+                                          widget.stall.location,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              // === Stall title + location with adaptive top padding ===
+                              GestureDetector(
+                                onTap: () =>
+                                    _toggleFavorite(),
+                                child: Transform.translate(
+                                  offset: const Offset(-12, 0),
+                                  child: Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Color(0x50000000),
+                                          offset: Offset(0, 2),
+                                          blurRadius: 4,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: SvgPicture.asset(
+                                        isFavorited
+                                            ? 'assets/icons/heart-red-selected.svg'
+                                            : 'assets/icons/heart-red-hollow.svg',
+                                        height: 24,
+                                        width: 24,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          // ===== Filter Row =====
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 600),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: Center(
+                                      child: Wrap(
+                                        alignment: WrapAlignment.center,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        spacing: 10,
+                                        runSpacing: 10,
+                                        children: [
+                                          _buildFilterButton(),
+                                          ..._buildVisibleTags(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  AnimatedSize(
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeInOut,
+                                    child: isFilterOpen
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 0,
+                                                  ),
+                                              child: _buildDropdownFilters(),
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Transform.translate(
-                            offset: const Offset(8, 0),
+
+                          // ===== Menu Grid =====
+                          ClipRect(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: AutoSizeText(
-                                    widget.stall.stallName,
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black,
-                                    ),
-                                    maxLines: 1,
-                                    minFontSize: 15,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
                                 Transform.translate(
-                                  offset: const Offset(0, -10),
-                                  child: Text(
-                                    widget.stall.location,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.black,
+                                  offset: const Offset(0, -22),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      10,
+                                      0,
+                                      10,
+                                      10,
+                                    ),
+
+                                    child: Builder(
+                                      builder: (context) {
+                                        // ✅ Sort dishes: available first
+                                        final sortedItems = [...menuItems]
+                                          ..sort((a, b) {
+                                            if (a.available == b.available)
+                                              return 0;
+                                            return a.available
+                                                ? -1
+                                                : 1; // available before unavailable
+                                          });
+
+                                        // ✅ Optional: handle no dishes
+                                        if (sortedItems.isEmpty) {
+                                          return const Center(
+                                            child: Text(
+                                              'No dishes found.',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                color: Colors.black54,
+                                              ),
+                                            ),
+                                          );
+                                        }
+
+                                        // ✅ The grid itself
+                                        return GridView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          itemCount: sortedItems.length,
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                                crossAxisCount: 2,
+                                                childAspectRatio: 0.9,
+                                                crossAxisSpacing: 23,
+                                                mainAxisSpacing: 23,
+                                              ),
+                                          itemBuilder: (context, index) {
+                                            final item = sortedItems[index];
+
+                                            return GestureDetector( 
+                                              onTap: () {
+                                                if (!item.available) {
+                                                  return;
+                                                }
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        StallDishViewPage(
+                                                          stall: widget.stall,
+                                                          dish: item,
+                                                        ),
+                                                  ),
+                                                );
+                                              },
+                                              child: Opacity(
+                                                opacity: item.available
+                                                    ? 1
+                                                    : 0.4,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    border: Border.all(
+                                                      color: const Color(
+                                                        0xFF710E1D,
+                                                      ),
+                                                      width: 1,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    boxShadow: const [
+                                                      BoxShadow(
+                                                        color: Color(
+                                                          0x25000000,
+                                                        ),
+                                                        offset: Offset(0, 4),
+                                                        blurRadius: 4,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      ClipRRect(
+                                                        borderRadius:
+                                                            const BorderRadius.only(
+                                                              topLeft:
+                                                                  Radius.circular(
+                                                                    12,
+                                                                  ),
+                                                              topRight:
+                                                                  Radius.circular(
+                                                                    12,
+                                                                  ),
+                                                            ),
+                                                        child:
+                                                            (item.imageUrl !=
+                                                                    null &&
+                                                                item
+                                                                    .imageUrl!
+                                                                    .isNotEmpty)
+                                                            ? Image.network(
+                                                                item.imageUrl!,
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                                width: double
+                                                                    .infinity,
+                                                                height: 122,
+                                                              )
+                                                            : Image.asset(
+                                                                'assets/png/image-square.png',
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                                width: double
+                                                                    .infinity,
+                                                                height: 122,
+                                                              ),
+                                                      ),
+                                                      Container(
+                                                        width: double.infinity,
+                                                        height: 1,
+                                                        color: const Color(
+                                                          0xff710E1D,
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              6.0,
+                                                            ),
+                                                        child: Text(
+                                                          item.dishName,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                        GestureDetector(
-                          onTap: () =>
-                              setState(() => isFavorited = !isFavorited),
-                          child: Transform.translate(
-                            offset: const Offset(-12, 0),
-                            child: Container(
-                              width: 34,
-                              height: 34,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Color(0x50000000),
-                                    offset: Offset(0, 2),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: SvgPicture.asset(
-                                  isFavorited
-                                      ? 'assets/icons/heart-red-selected.svg'
-                                      : 'assets/icons/heart-red-hollow.svg',
-                                  height: 24,
-                                  width: 24,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ===== Filter Row =====
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 600),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: double.infinity,
-                              child: Center(
-                                child: Wrap(
-                                  alignment: WrapAlignment.center,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    _buildFilterButton(),
-                                    ..._buildVisibleTags(),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeInOut,
-                              child: isFilterOpen
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 0,
-                                        ),
-                                        child: _buildDropdownFilters(),
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // ===== Menu Grid =====
-                    ClipRect(
-                      child: Column(
-                        children: [
-                          Transform.translate(
-                            offset: const Offset(0, -22),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                              child: GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: menuItems.length,
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      childAspectRatio: 0.9,
-                                      crossAxisSpacing: 23,
-                                      mainAxisSpacing: 23,
-                                    ),
-                                itemBuilder: (context, index) {
-                                  final item = menuItems[index];
-
-                                  return Opacity(
-                                    opacity: item.available ? 1 : 0.4,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        border: Border.all(
-                                          color: const Color(0xFF710E1D),
-                                          width: 1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                        boxShadow: const [
-                                          BoxShadow(
-                                            color: Color(0x25000000),
-                                            offset: Offset(0, 4),
-                                            blurRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          ClipRRect(
-                                            borderRadius:
-                                                const BorderRadius.only(
-                                                  topLeft: Radius.circular(12),
-                                                  topRight: Radius.circular(12),
-                                                ),
-                                            child:
-                                                (item.imageUrl != null &&
-                                                    item.imageUrl!.isNotEmpty)
-                                                ? Image.network(
-                                                    item.imageUrl!,
-                                                    fit: BoxFit.cover,
-                                                    width: double.infinity,
-                                                    height: 122,
-                                                  )
-                                                : Image.asset(
-                                                    'assets/png/image-square.png',
-                                                    fit: BoxFit.cover,
-                                                    width: double.infinity,
-                                                    height: 122,
-                                                  ),
-                                          ),
-                                          Container(
-                                            width: double.infinity,
-                                            height: 1,
-                                            color: const Color(0xff710E1D),
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.all(6.0),
-                                            child: Text(
-                                              item.dishName, // from DB
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-          const Positioned(top: 0, left: 0, right: 0, child: StoreRoof()),
+                const Positioned(top: 0, left: 0, right: 0, child: StoreRoof()),
 
-          Positioned(
-            top: 45,
-            left: 12,
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.black,
-                  size: 22,
+                Positioned(
+                  top: 45,
+                  left: 12,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.black,
+                        size: 22,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
                 ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () => Navigator.pop(context),
-              ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -506,7 +680,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
                   width: 135,
                   height: 33,
                   child: Container(
-                    padding: const EdgeInsets.only(left: 10, right: 8),
+                    padding: const EdgeInsets.only(left: 8, right: 4),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -586,7 +760,7 @@ class _StallDishesPageState extends State<StallDishesPage> {
         child: Container(
           width: 102,
           height: 32,
-          padding: const EdgeInsets.only(left: 10, right: 8),
+          padding: const EdgeInsets.only(left: 8),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
