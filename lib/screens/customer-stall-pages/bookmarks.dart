@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:haulam/screens/customer-stall-pages/stall_dishes.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../store_roof.dart';
 import '../../models/stalls_model.dart';
@@ -23,8 +24,7 @@ class _BookmarksPageState extends State<BookmarksPage> {
     fetchBookmarks();
   }
 
- // =========================== BACK - END [SUPABASE] ==========================
-
+  // =========================== BACK - END [SUPABASE] ==========================
   Future<void> fetchBookmarks() async {
     setState(() => isLoading = true);
 
@@ -37,9 +37,7 @@ class _BookmarksPageState extends State<BookmarksPage> {
 
       final response = await supabase
           .from('Bookmarks')
-          .select(
-            'stall_id, Stalls (id, stall_name, location, is_open, image_url)',
-          )
+          .select('stall_id, Stalls (id, stall_name, location, is_open, image_url)')
           .eq('user_id', user.id);
 
       setState(() {
@@ -48,13 +46,11 @@ class _BookmarksPageState extends State<BookmarksPage> {
           return Stall(
             id: stall['id'].toString(),
             imagePath: stall['image_url'] ?? '',
-            title:
-                "${stall['stall_name']} - ${stall['location'] ?? 'No Location'}",
-            status: stall['is_open'] == true
-                ? "Currently Open"
-                : "Currently Closed",
+            title: "${stall['stall_name']} - ${stall['location'] ?? 'No Location'}",
+            status: stall['is_open'] == true ? "Currently Open" : "Currently Closed",
             location: stall['location'] ?? "Unknown",
             isFavorited: true,
+            stallName: stall['stall_name'] ?? "No Stall",
           );
         }).toList();
         isLoading = false;
@@ -91,7 +87,6 @@ class _BookmarksPageState extends State<BookmarksPage> {
   }
 
   // ===========================================================================
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -192,118 +187,130 @@ class _StallCardState extends State<StallCard> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Center(
-      child: Container(
-        width: screenWidth * 0.88,
-        margin: const EdgeInsets.only(bottom: 20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.white,
-          boxShadow: const [
-            BoxShadow(
-              color: Color.fromARGB(57, 0, 0, 0),
-              blurRadius: 6,
-              offset: Offset(0, 4),
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  (widget.stall.imagePath.isNotEmpty)
-                      ? Image.network(
-                          widget.stall.imagePath,
-                          height: 120,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Image.asset(
-                              'assets/png/image-rectangle.png',
-                              height: 120,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            );
-                          },
-                        )
-                      : Image.asset(
-                          'assets/png/image-rectangle.png',
-                          height: 120,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-
-                  Positioned(
-                    top: 14,
-                    right: 14,
-                    child: GestureDetector(
-                      onTap: _handleTap,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              offset: const Offset(0, 2),
-                              blurRadius: 4,
-                              spreadRadius: 1,
+    return GestureDetector(
+      onTap: () {
+        // Navigate to StallDishesPage with stallId
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StallDishesPage(stall: widget.stall),
+          ),
+        ).then((_) {
+          // FETCH BOOKMARKS HERE
+        });
+      },
+      child: Center(
+        child: Container(
+          width: screenWidth * 0.88,
+          margin: const EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromARGB(57, 0, 0, 0),
+                blurRadius: 6,
+                offset: Offset(0, 4),
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    (widget.stall.imagePath.isNotEmpty)
+                        ? Image.network(
+                            widget.stall.imagePath,
+                            height: 120,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/png/image-rectangle.png',
+                                height: 120,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              );
+                            },
+                          )
+                        : Image.asset(
+                            'assets/png/image-rectangle.png',
+                            height: 120,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                    Positioned(
+                      top: 14,
+                      right: 14,
+                      child: GestureDetector(
+                        onTap: _handleTap,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                offset: const Offset(0, 2),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: Colors.white,
+                            child: SvgPicture.asset(
+                              isFavorited
+                                  ? "assets/icons/heart-red-selected.svg"
+                                  : "assets/icons/heart-red-hollow.svg",
+                              width: 20,
+                              height: 20,
                             ),
-                          ],
-                        ),
-                        child: CircleAvatar(
-                          radius: 14,
-                          backgroundColor: Colors.white,
-                          child: SvgPicture.asset(
-                            isFavorited
-                                ? "assets/icons/heart-red-selected.svg"
-                                : "assets/icons/heart-red-hollow.svg",
-                            width: 20,
-                            height: 20,
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(23, 8, 8, 8),
-                decoration: const BoxDecoration(
-                  color: Color(0xff710E1D),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.stall.title,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      widget.stall.status,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
                   ],
                 ),
-              ),
-            ],
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(23, 8, 8, 8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xff710E1D),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.stall.title,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        widget.stall.status,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -312,13 +319,12 @@ class _StallCardState extends State<StallCard> {
 }
 
 /*
-
 LAST WORKING VERSION --- October 11: 10PM
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../store_roof.dart';
-import '../../models/stalls_model.dart'; 
+import '../../models/stalls_model.dart';
 
 class BookmarksPage extends StatefulWidget {
   const BookmarksPage({super.key});
@@ -444,7 +450,7 @@ class _StallCardState extends State<StallCard> {
     return Center(
       child: Container(
         width: screenWidth * 0.88,
-        margin: const EdgeInsets.only(bottom: 20), 
+        margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: Colors.white,
@@ -558,5 +564,4 @@ class _StallCardState extends State<StallCard> {
     );
   }
 }
-
 */
