@@ -1,34 +1,40 @@
+/*
+  File: vendor_navbar.dart
+  Purpose: Implements the bottom navigation bar for vendors, allowing
+           easy switching between the Vendor Stall page and the Account
+           Profile page. Manages the currently selected tab state.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+*/
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:haulam/screens/account-pages/account_profile.dart';
 import 'vendor-view-pages/vendor_stall.dart';
-import 'vendor-view-pages/vendor_edit_profile.dart';
 
-class MainTwoScaffold extends StatefulWidget {
-  final int currentIndex; // <-- Add this to select initial tab
+class VendorNavBar extends StatefulWidget {
+  final int currentIndex; 
 
-  const MainTwoScaffold({
+  const VendorNavBar({
     super.key,
     this.currentIndex = 0, // default to Home
   });
 
   @override
-  State<MainTwoScaffold> createState() => _MainTwoScaffoldState();
+  State<VendorNavBar> createState() => _VendorNavBarState();
 }
 
-class _MainTwoScaffoldState extends State<MainTwoScaffold> {
+class _VendorNavBarState extends State<VendorNavBar> {
   late int _currentIndex;
 
   final List<Widget> _pages = const [
-    VendorStallPage(), //stalls
-    // VendorProfilePage(), //profile  <---- pinalitan ko para lang ma-access yung log out tnx josie
-    AccountPage(),                  // <---- TEMPORARY 
+    VendorStallPage(), 
+    AccountPage(),              
   ];
 
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.currentIndex; // <-- set initial tab
+    _currentIndex = widget.currentIndex;
   }
 
   @override
@@ -86,4 +92,4 @@ class _MainTwoScaffoldState extends State<MainTwoScaffold> {
       ),
     );
   }
-}
+} 
