@@ -1,44 +1,82 @@
+/*
+  File: menu_item.dart
+  Purpose: Defines the MenuItem model that represents a dish in the Supabase "Dishes" table. 
+           Includes methods for converting between Dart objects and database maps, as well 
+           as utilities for copying and updating records.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+              Pineda, Mary Alexa Ysabelle V. [hrspnd]
+*/
+
+/// Model for public."Dishes"
 class MenuItem {
-  final String id;
-  final String name;
-  final String imagePath;
-  final bool isAvailable;
-  final double price;
-  final String description;
-  final List<String> tags;
+  final String id;          
+  final String? stallId;      
+  final String dishName;        
+  final String? description; 
+  final double price;            
+  final String? imageUrl;       
+  final bool available;          
+  final DateTime createdAt;     
 
   MenuItem({
     required this.id,
-    required this.name,
-    required this.imagePath,
-    this.isAvailable = true,
-    this.price = 0.0,
-    this.description = '',
-    this.tags = const [],
+    required this.stallId,
+    required this.dishName,
+    required this.description,
+    required this.price,
+    required this.imageUrl,
+    required this.available,
+    required this.createdAt,
   });
 
-  // Convert backend data to object
-  factory MenuItem.fromMap(Map<String, dynamic> data, String id) {
+  /// Build from a Supabase row (Map)
+  factory MenuItem.fromMap(Map<String, dynamic> data) {
+    final created = data['created_at'];
     return MenuItem(
-      id: id,
-      name: data['name'] ?? '',
-      imagePath: data['imagePath'] ?? '',
-      isAvailable: data['isAvailable'] ?? true,
-      price: (data['price'] ?? 0).toDouble(),
-      description: data['description'] ?? '',
-      tags: List<String>.from(data['tags'] ?? []),
+      id: data['id'] as String,
+      stallId: data['stall_id'] as String?,
+      dishName: (data['dish_name'] ?? '') as String,
+      description: data['description'] as String?,
+      price: (data['price'] is num) ? (data['price'] as num).toDouble() : double.tryParse('${data['price']}') ?? 0.0,
+      imageUrl: data['image_url'] as String?,
+      available: (data['available'] as bool?) ?? true,
+      createdAt: created is String
+          ? DateTime.parse(created)
+          : (created is DateTime ? created : DateTime.now()),
     );
   }
 
-  // Convert object to backend map
+  /// Map for insert/update (omit id & created_at; DB sets those)
   Map<String, dynamic> toMap() {
     return {
-      'name': name,
-      'imagePath': imagePath,
-      'isAvailable': isAvailable,
-      'price': price,
+      'stall_id': stallId,
+      'dish_name': dishName,
       'description': description,
-      'tags': tags,
+      'price': price,
+      'image_url': imageUrl,
+      'available': available,
     };
+  }
+
+  MenuItem copyWith({
+    String? id,
+    String? stallId,
+    String? dishName,
+    String? description,
+    double? price,
+    String? imageUrl,
+    bool? available,
+    DateTime? createdAt,
+  }) {
+    return MenuItem(
+      id: id ?? this.id,
+      stallId: stallId ?? this.stallId,
+      dishName: dishName ?? this.dishName,
+      description: description ?? this.description,
+      price: price ?? this.price,
+      imageUrl: imageUrl ?? this.imageUrl,
+      available: available ?? this.available,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }
