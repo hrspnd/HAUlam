@@ -1,24 +1,32 @@
+/*
+  File: customer_navbar.dart
+  Purpose: Implements the bottom navigation bar for customers, allowing
+           easy switching between Stalls, Bookmarks, Search, and Account
+           pages. Manages the currently selected tab state.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+              Pineda, Mary Alexa Ysabelle V. [hrspnd]
+*/
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-// import 'package:haulam/screens/account-pages/dummy_account_profile.dart';
 import 'customer-stall-pages/stalls.dart';
 import 'customer-stall-pages/bookmarks.dart';
 import 'customer-stall-pages/search.dart';
 import 'account-pages/account_profile.dart';
 
-class MainFourScaffold extends StatefulWidget {
-  final int currentIndex; // <-- Add this to select initial tab
+class CustomerNavBar extends StatefulWidget {
+  final int currentIndex; 
 
-  const MainFourScaffold({
+  const CustomerNavBar({
     super.key,
-    this.currentIndex = 0, // default to Home
+    this.currentIndex = 0, 
   });
 
   @override
-  State<MainFourScaffold> createState() => _MainFourScaffoldState();
+  State<CustomerNavBar> createState() => _CustomerNavBarState();
 }
 
-class _MainFourScaffoldState extends State<MainFourScaffold> {
+class _CustomerNavBarState extends State<CustomerNavBar> {
   late int _currentIndex;
 
   final List<Widget> _pages = const [
@@ -31,7 +39,7 @@ class _MainFourScaffoldState extends State<MainFourScaffold> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.currentIndex; // <-- set initial tab
+    _currentIndex = widget.currentIndex;
   }
 
   @override
