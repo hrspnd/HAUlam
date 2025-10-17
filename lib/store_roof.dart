@@ -1,3 +1,11 @@
+/*
+  File: store_roof.dart
+  Purpose: Displays the decorative roof banner at the top of vendor or
+           customer stall pages using an SVG asset. Handles responsive
+           sizing based on screen width.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+*/
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
