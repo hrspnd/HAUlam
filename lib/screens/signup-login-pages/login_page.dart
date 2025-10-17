@@ -1,3 +1,11 @@
+/*
+  File: login_page.dart
+  Purpose: Provides the login interface for users, including email-password authentication,
+           Google OAuth integration, and password reset functionality using Supabase.
+  Developers: Rebusa, Amber Kaia J. [juliankaiaaa]
+              Pineda, Mary Alexa Ysabelle V. [hrspnd]
+*/
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -14,6 +22,7 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // ==================== BACK END ==================== //
   final supabase = Supabase.instance.client;
   static const String androidClientId =
       '740089896515-60h4atv846bh2aoqda4hjt9tikf4e5ti.apps.googleusercontent.com';
@@ -72,20 +81,48 @@ class _LoginPageState extends State<LoginPage> {
   bool _isPasswordVisible = false;
 
   // SUPABASE Email and Password Login
-  void logIn() async {
-    // Prepare Data
+  Future<void> logIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Login Attempt
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill in all fields.")),
+      );
+      return;
+    }
+
     try {
-      await authService.signInWiithEmailPassword(email, password);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      final response = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (response.user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Welcome back, ${response.user!.email}!")),
+        );
       }
+    } on AuthException catch (e) {
+      String errorMessage;
+
+      if (e.message.contains('Invalid login credentials')) {
+        errorMessage = "Incorrect email or password. Please try again.";
+      } else if (e.message.contains('Email not confirmed')) {
+        errorMessage = "Please verify your email before logging in.";
+      } else if (e.message.contains('User not found')) {
+        errorMessage = "No account found with that email.";
+      } else {
+        errorMessage = "Login failed: ${e.message}";
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Unexpected error: $e")));
     }
   }
 
@@ -95,6 +132,8 @@ class _LoginPageState extends State<LoginPage> {
     _passwordController.dispose();
     super.dispose();
   }
+
+  // ================================================== //
 
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
@@ -240,7 +279,7 @@ class _LoginPageState extends State<LoginPage> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                    "Password reset link sent! Check your email.",
+                                    "Please wait for your password reset link in your email inbox. It may take a few moments to arrive.",
                                   ),
                                 ),
                               );
@@ -342,7 +381,6 @@ class _LoginPageState extends State<LoginPage> {
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () {
-                          // TODO: Google sign up
                           signInWithGoogle();
                         },
                         style: OutlinedButton.styleFrom(
