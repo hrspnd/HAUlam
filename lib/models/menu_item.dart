@@ -1,8 +1,6 @@
 /*
   File: menu_item.dart
-  Purpose: Defines the MenuItem model that represents a dish in the Supabase "Dishes" table. 
-           Includes methods for converting between Dart objects and database maps, as well 
-           as utilities for copying and updating records.
+  Purpose: Data model for dishes stored in the Supabase "Dishes" table.
   Developers: Magat, Maria Josephine M. [jsphnmgt]
               Pineda, Mary Alexa Ysabelle V. [hrspnd]
 */
