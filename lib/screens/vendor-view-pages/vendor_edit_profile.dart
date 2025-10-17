@@ -1,25 +1,51 @@
+/*
+  File: vendor_edit_profile.dart
+  Purpose: Enables vendors to edit their stall's profile, including updating
+           stall name, location, operating hours, and profile image. Integrates
+           with Supabase for database and storage operations.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+              Pineda, Mary Alexa Ysabelle V. [hrspnd]
+*/
+
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-// import 'package:supabase_flutter/supabase_flutter.dart'; // 👈 Uncomment once Supabase is added
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../store_roof.dart';
 
 class VendorEditProfilePage extends StatefulWidget {
-  const VendorEditProfilePage({super.key});
+  final String stallId;
+  const VendorEditProfilePage({super.key, required this.stallId});
 
   @override
   State<VendorEditProfilePage> createState() => _VendorEditProfilePageState();
 }
 
 class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
-  final TextEditingController _stallNameController = TextEditingController(
-    text: "KIRSTENJOY",
-  );
+  final supabase = Supabase.instance.client;
 
-  String? selectedLocation = "St. Martha Hall";
+  final TextEditingController _stallNameController = TextEditingController();
+  final _stallNameFocus = FocusNode();
+  String? selectedLocation;
   String? imageUrl;
 
   TimeOfDay? openTime;
   TimeOfDay? closeTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStallFromDb();
+  }
+
+  @override
+  void dispose() {
+    _stallNameFocus.dispose();
+    _stallNameController.dispose();
+    super.dispose();
+  }
 
   String formatTime(TimeOfDay? time) {
     if (time == null) return "--:--";
@@ -28,15 +54,95 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
     return "$hour:${time.minute.toString().padLeft(2, '0')} $period";
   }
 
+  TimeOfDay? _parseTimeString(String? s) {
+    if (s == null || s.trim().isEmpty) return null;
+    try {
+      final parts = s.trim().split(' ');
+      final hm = parts[0].split(':');
+      var hour = int.parse(hm[0]);
+      final minute = int.parse(hm[1]);
+      final isPM = parts.length > 1 && parts[1].toUpperCase() == 'PM';
+      if (isPM && hour < 12) hour += 12;
+      if (!isPM && hour == 12) hour = 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadStallFromDb() async {
+    try {
+      final row = await supabase
+          .from('Stalls')
+          .select('stall_name, location, image_url, open_time, close_time')
+          .eq('id', widget.stallId)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      if (row != null) {
+        _stallNameController.text = (row['stall_name'] ?? '') as String;
+        selectedLocation = (row['location'] ?? '') as String?;
+        imageUrl = (row['image_url'] ?? '') as String?;
+
+        openTime = _parseTimeString(row['open_time'] as String?);
+        closeTime = _parseTimeString(row['close_time'] as String?);
+      }
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Supabase error: ${e.message}')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unexpected error: $e')));
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    try {
+      final update = {
+        'stall_name': _stallNameController.text.trim(),
+        'location': selectedLocation,
+        'image_url': imageUrl,
+        'open_time': openTime == null ? null : formatTime(openTime),
+        'close_time': closeTime == null ? null : formatTime(closeTime),
+      };
+
+      await supabase.from('Stalls').update(update).eq('id', widget.stallId);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Stall updated')));
+      Navigator.pop(context);
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Supabase error: ${e.message}')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unexpected error: $e')));
+    }
+  }
+
   /// ===== Cupertino Time Picker =====
   Future<void> _pickTime(bool isOpenTime) async {
+    _stallNameFocus.unfocus();
+    _stallNameFocus.canRequestFocus = false;
+
     TimeOfDay initialTime = isOpenTime
         ? (openTime ?? TimeOfDay.now())
         : (closeTime ?? TimeOfDay.now());
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white, 
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -97,11 +203,19 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
           ),
         );
       },
-    );
+    ).whenComplete(() {
+      if (!mounted) return;
+      FocusScope.of(context).requestFocus(FocusNode());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _stallNameFocus.canRequestFocus = true;
+      });
+    });
   }
 
   /// ===== Cupertino Location Picker =====
   Future<void> _pickLocation() async {
+    FocusScope.of(context).unfocus();
+
     final List<String> locations = [
       "APS Canteen",
       "GGN Canteen",
@@ -110,11 +224,12 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
       "Yellow Canteen",
     ];
 
-    int selectedIndex = locations.indexOf(selectedLocation ?? "St. Martha Hall");
+    int selectedIndex = locations.indexOf(selectedLocation ?? "APS Canteen");
+    if (selectedIndex < 0) selectedIndex = 0;
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white, // 👈 Ensures white background
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -155,15 +270,17 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                     });
                   },
                   children: locations
-                      .map((loc) => Center(
-                            child: Text(
-                              loc,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.black,
-                              ),
+                      .map(
+                        (loc) => Center(
+                          child: Text(
+                            loc,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black,
                             ),
-                          ))
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -172,29 +289,71 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
         );
       },
     );
+    if (mounted) {
+      FocusScope.of(context).requestFocus(FocusNode());
+    }
   }
 
-  /// ===== Save Profile to Supabase =====
-  void _saveProfile() async {
-    final stallData = {
-      "stallName": _stallNameController.text,
-      "location": selectedLocation,
-      "openTime": formatTime(openTime),
-      "closeTime": formatTime(closeTime),
-      "imageUrl": imageUrl ?? "",
-    };
+  File? _selectedImage;
+  Future<void> _pickImage() async {
+    try {
+      // Let user choose camera or gallery
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take a photo'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo),
+                title: const Text('Choose from gallery'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
 
-    // 👇 BACKEND CODE HERE
-    // TODO: Use Supabase to insert/update stall data
-    // Example:
-    // final response = await Supabase.instance.client
-    //   .from('stalls')
-    //   .upsert(stallData)
-    //   .select();
-    //
-    // Handle success/error
+      if (source == null) return;
 
-    print("Stall Data to Save: $stallData");
+      // Pick image
+      final picker = ImagePicker();
+      final file = await picker.pickImage(source: source);
+      if (file == null) return;
+
+      final bytes = await file.readAsBytes();
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      // Upload to Supabase
+      await supabase.storage
+          .from('dishimages') // or 'profilepictures' for user profiles
+          .uploadBinary(fileName, bytes);
+
+      // Get the public URL
+      final url = supabase.storage.from('dishimages').getPublicUrl(fileName);
+
+      // Update local state so the UI shows the new image
+      setState(() {
+        _selectedImage = File(file.path);
+        imageUrl = url; // make sure you have imageUrl defined in your class
+      });
+
+      print("Image uploaded successfully: $url");
+    } catch (e) {
+      print("Upload error: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+    }
   }
 
   @override
@@ -239,13 +398,15 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: imageUrl == null || imageUrl!.isEmpty
-                                ? Image.asset(
+                            borderRadius: BorderRadius.circular(8),
+                            child: _selectedImage != null
+                                ? Image.file(_selectedImage!, fit: BoxFit.cover)
+                                : (imageUrl != null && imageUrl!.isNotEmpty)
+                                ? Image.network(imageUrl!, fit: BoxFit.cover)
+                                : Image.asset(
                                     "assets/png/image-square.png",
                                     fit: BoxFit.cover,
-                                  )
-                                : Image.network(imageUrl!, fit: BoxFit.cover),
+                                  ),
                           ),
                         ),
                         Positioned(
@@ -268,13 +429,7 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                                 size: 20,
                                 color: Color.fromARGB(255, 109, 109, 109),
                               ),
-                              onPressed: () async {
-                                // 👇 BACKEND CODE HERE
-                                // TODO: Open Image Picker
-                                // - Upload image to Supabase Storage
-                                // - Get public URL
-                                // - setState(() => imageUrl = uploadedUrl);
-                              },
+                              onPressed: _pickImage,
                             ),
                           ),
                         ),
@@ -403,8 +558,9 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                             onChanged: (_) {},
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(12)),
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(12),
+                                ),
                               ),
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 12,
