@@ -1,3 +1,11 @@
+/*
+  File: stalls_model.dart
+  Purpose: Data model for vendor stalls stored in the Supabase "Stalls" table.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+              Pineda, Mary Alexa Ysabelle V. [hrspnd]
+*/
+
+/// Model for public."Stalls"
 class Stall {
   final String id;
   final String imagePath;
@@ -5,7 +13,9 @@ class Stall {
   final String status;
   final bool isFavorited;
   final String location;
-  final String stallName; 
+  final String stallName;
+  final String? openTime;  
+  final String? closeTime;  
 
   Stall({
     required this.id,
@@ -14,9 +24,12 @@ class Stall {
     required this.status,
     this.isFavorited = false,
     required this.location,
-    required this.stallName, 
+    required this.stallName,
+    this.openTime,   
+    this.closeTime,  
   });
 
+  /// Build from a Supabase row (Map)
   factory Stall.fromMap(Map<String, dynamic> data, String id) {
     return Stall(
       id: id,
@@ -25,10 +38,13 @@ class Stall {
       status: data['status'] ?? 'Closed',
       isFavorited: data['isFavorited'] ?? false,
       location: data['location'] ?? '',
-      stallName: data['stallName'] ?? '', 
+      stallName: data['stallName'] ?? '',
+      openTime: data['open_time'] ?? '',  
+      closeTime: data['close_time'] ?? '', 
     );
   }
 
+  /// Map for insert/update (omit id & created_at; DB sets those)
   Map<String, dynamic> toMap() {
     return {
       'imagePath': imagePath,
@@ -36,7 +52,9 @@ class Stall {
       'status': status,
       'isFavorited': isFavorited,
       'location': location,
-      'stallName': stallName, 
+      'stallName': stallName,
+      if (openTime != null) 'open_time': openTime,   
+      if (closeTime != null) 'close_time': closeTime,
     };
   }
 
@@ -47,7 +65,9 @@ class Stall {
     String? status,
     bool? isFavorited,
     String? location,
-    String? stallName, 
+    String? stallName,
+    String? openTime,
+    String? closeTime,
   }) {
     return Stall(
       id: id ?? this.id,
@@ -57,6 +77,8 @@ class Stall {
       isFavorited: isFavorited ?? this.isFavorited,
       location: location ?? this.location,
       stallName: stallName ?? this.stallName,
+      openTime: openTime ?? this.openTime,
+      closeTime: closeTime ?? this.closeTime,
     );
   }
 }
