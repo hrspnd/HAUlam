@@ -1,10 +1,19 @@
+/*
+  File: account_page.dart
+  Purpose: Displays the user's profile summary and provides access to account-related actions 
+           such as editing details, managing security, deleting the account, and logging out.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+              Pineda, Mary Alexa Ysabelle V. [hrspnd]
+*/
+
 import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:haulam/auth-backend/auth_gate.dart';
 import 'package:haulam/auth-backend/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'account_details.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'editaccount.dart';
+import 'edit_account.dart';
+import 'two_factor_auth.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -16,6 +25,7 @@ class AccountPage extends StatefulWidget {
 final supabase = Supabase.instance.client;
 
 class _AccountPageState extends State<AccountPage> {
+  // ==================== BACK END ==================== //
   // Get AuthService
   final authService = AuthService();
   bool isLoading = false;
@@ -23,31 +33,6 @@ class _AccountPageState extends State<AccountPage> {
   String firstName = "User";
   String email = "No Email";
   String? photoUrl;
-  /*
-  void _loadUser() {
-    final user = supabase.auth.currentUser;
-    if (user != null) {
-      setState(() {
-        firstName =
-            user.userMetadata?['name'] ??
-            ((supabase.auth.currentUser?.userMetadata?['first_name'] ?? '') +
-                    ' ' +
-                    (supabase.auth.currentUser?.userMetadata?['last_name'] ??
-                        ''))
-                .trim() ??
-            'User';
-        // firstName = user.userMetadata?['name'] ?? 'didnt work';
-        email = user.email ?? 'No Email';
-        photoUrl = user.userMetadata?['picture'];
-        isLoading = false;
-      });
-    } else {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-  */
 
   Future<void> _loadUser() async {
     setState(() => isLoading = true);
@@ -96,32 +81,20 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
-  /*  
-  void _loadUser() {
-    final user = supabase.auth.currentUser;
-    if (user != null) {
-      final metadata = user.userMetadata ?? {};
-
-      setState(() {
-        firstName =
-            metadata['name'] ??
-            ('${metadata['first_name'] ?? ''} ${metadata['last_name'] ?? ''}')
-                .trim();
-        email = user.email ?? 'No Email';
-        photoUrl = metadata['image_url'];
-        isLoading = false;
-      });
-    } else {
-      setState(() {
-        isLoading = false;
-      });
+  Future<void> logout() async {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Logout failed: ${e.toString()}',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      );
     }
-  }
-
-  */
-
-  void logout() async {
-    await authService.signOut();
   }
 
   @override
@@ -129,6 +102,8 @@ class _AccountPageState extends State<AccountPage> {
     super.initState();
     _loadUser();
   }
+
+  // ================================================== //
 
   @override
   Widget build(BuildContext context) {
@@ -233,8 +208,9 @@ class _AccountPageState extends State<AccountPage> {
                                 MaterialPageRoute(
                                   builder: (context) => const EditAccountPage(),
                                 ),
-                              );
-                              _loadUser();
+                              ).then((_) {
+                                _loadUser();
+                              });
                             },
                             icon: Image.asset(
                               "assets/png/edit-icon.png",
@@ -293,7 +269,14 @@ class _AccountPageState extends State<AccountPage> {
                       "Password & Security",
                       style: TextStyle(fontSize: 14),
                     ),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TwoFactorAuthenticationPage(),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(
                     height: 4,
@@ -316,9 +299,6 @@ class _AccountPageState extends State<AccountPage> {
                       showDialog(
                         context: context,
                         builder: (BuildContext context) {
-                          final TextEditingController passwordController =
-                              TextEditingController();
-
                           return Dialog(
                             backgroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
@@ -353,79 +333,17 @@ class _AccountPageState extends State<AccountPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 5),
-
                                     // Description
                                     const Text(
-                                      "Deleting your account will permanently remove all your data, including search history and preferences. This action cannot be undone.",
+                                      "To delete your account, please contact the administrators for assistance. "
+                                      "Our team will help you with the process and confirm your request.\n\n"
+                                      "📧 Email: haulam2126@gmail.com",
                                       style: TextStyle(
                                         color: Colors.black,
                                         fontSize: 12,
                                         height: 1.3,
                                       ),
                                     ),
-                                    const SizedBox(height: 10),
-
-                                    // Password Input
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.15,
-                                            ),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: TextField(
-                                        controller: passwordController,
-                                        textAlignVertical:
-                                            TextAlignVertical.center,
-                                        obscureText: true,
-                                        decoration: InputDecoration(
-                                          hintText: null,
-                                          hint: Transform.translate(
-                                            offset: const Offset(0, -1),
-                                            child: const DefaultTextStyle(
-                                              style: TextStyle(
-                                                color: Color(0xFF525252),
-                                                fontSize: 12,
-                                              ),
-                                              child: Text(
-                                                "Enter current password",
-                                              ),
-                                            ),
-                                          ),
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                vertical: 10,
-                                                horizontal: 16,
-                                              ),
-                                          filled: true,
-                                          fillColor: Colors.white,
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                            borderSide: const BorderSide(
-                                              color: Colors.black,
-                                              width: 1,
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                            borderSide: const BorderSide(
-                                              color: Color(0xFF710E1D),
-                                              width: 1.3,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
                                     const SizedBox(height: 15),
 
                                     const Divider(
@@ -439,27 +357,10 @@ class _AccountPageState extends State<AccountPage> {
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: const Text(
-                                            "Cancel",
-                                            style: TextStyle(
-                                              color: Color(0xFF747474),
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
                                         const SizedBox(width: 10),
                                         ElevatedButton(
                                           onPressed: () {
-                                            final password =
-                                                passwordController.text;
-                                            if (password.isNotEmpty) {
-                                              // deleteAccount(password);
-                                              Navigator.pop(context);
-                                            }
+                                            Navigator.pop(context);
                                           },
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: const Color(
@@ -475,7 +376,7 @@ class _AccountPageState extends State<AccountPage> {
                                             ),
                                           ),
                                           child: const Text(
-                                            "Confirm",
+                                            "Okay",
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
@@ -564,10 +465,24 @@ class _AccountPageState extends State<AccountPage> {
                                     ),
                                     const SizedBox(width: 10),
                                     TextButton(
-                                      onPressed: () {
-                                        logout();
-                                        Navigator.pop(context);
+                                      onPressed: () async {
+                                        Navigator.pop(
+                                          context,
+                                        ); // close dialog first
+                                        await logout();
+
+                                        if (!context.mounted) return;
+                                        Navigator.of(
+                                          context,
+                                        ).pushAndRemoveUntil(
+                                          MaterialPageRoute(
+                                            builder: (_) => const AuthGate(),
+                                          ),
+                                          (route) =>
+                                              false, // clears entire stack
+                                        );
                                       },
+
                                       child: const Text(
                                         "Confirm",
                                         style: TextStyle(
@@ -599,7 +514,6 @@ class _AccountPageState extends State<AccountPage> {
   }
 }
 
-/// Custom narrower ListTile
 class NarrowListTile extends StatelessWidget {
   final Widget leading;
   final Widget title;
