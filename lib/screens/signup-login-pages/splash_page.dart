@@ -1,3 +1,10 @@
+/*
+  File: splash_page.dart
+  Purpose: Displays the splash screen of the HAULAM app, featuring 
+           a fading logo animation before navigating to the AuthGate.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+*/
+
 import 'package:flutter/material.dart';
 import 'package:haulam/auth-backend/auth_gate.dart';
 
@@ -15,7 +22,6 @@ class _SplashPageState extends State<SplashPage> {
   void initState() {
     super.initState();
 
-    // paglipat sa homepage landing page
     // Start fading after 1.5 seconds
     Future.delayed(const Duration(milliseconds: 1500), () {
       setState(() {
