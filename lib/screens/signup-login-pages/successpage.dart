@@ -1,5 +1,12 @@
+/*
+  File: success_page.dart
+  Purpose: Displays a confirmation screen after successful sign-up,
+           prompting users to verify their email before continuing to the app.
+  Developers: Rebusa, Amber Kaia J. [juliankaiaaa]
+*/
+
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:haulam/auth-backend/auth_gate.dart';
 
 class SuccessPage extends StatelessWidget {
   const SuccessPage({super.key});
@@ -37,23 +44,21 @@ class SuccessPage extends StatelessWidget {
             child: Column(
               children: [
                 const SizedBox(height: 80),
-                Image.asset("assets/png/successfully-registered-check.png", width: 120, height: 120), 
+                Image.asset(
+                  "assets/png/email.png",
+                  width: 120,
+                  height: 120,
+                ),
                 const SizedBox(height: 2),
                 const Text(
-                  "You're all set!",
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  "One last step!",
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 5),
                 const Text(
-                  "Your account has been created successfully.",
+                  "Open your email and tap Verify email to continue.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.black,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.black),
                 ),
                 const SizedBox(height: 250),
                 SizedBox(
@@ -61,8 +66,7 @@ class SuccessPage extends StatelessWidget {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Continue → go back to first screen (or replace with LoginPage)
-                      Navigator.popUntil(context, (route) => route.isFirst);
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const AuthGate()));
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.yellow[700],
