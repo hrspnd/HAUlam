@@ -1,7 +1,17 @@
+/*
+  File: stall_dish_view.dart
+  Purpose: Displays detailed information about a selected dish, including its 
+           image, price, description, and food tags fetched from Supabase.
+  Developers: Magat, Maria Josephine M. [jsphnmgt]
+              Pineda, Mary Alexa Ysabelle V. [hrspnd]
+*/
+
 import 'package:flutter/material.dart';
 import '../store_roof.dart';
-import '../models/stalls_model.dart';
-import '../models/menu_item.dart';
+import '../../models/stalls_model.dart';
+import '../../models/menu_item.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StallDishViewPage extends StatefulWidget {
   final Stall stall;
@@ -44,12 +54,66 @@ Widget _buildTag(String label, Color dotColor) {
 
 class _StallDishViewPageState extends State<StallDishViewPage> {
   late bool isFavorited;
+  final _supabase = Supabase.instance.client;
+
+  // ==================== BACK END ==================== //
+  bool _tagsLoading = true;
+  List<Map<String, dynamic>> _dishTags =
+      []; // each: {'label': String, 'color': Color?}
+
+  // Fallback colors
+  final Map<String, Color> _TAG_COLORS = {
+    'Beef': Color(0xff8B4513),
+    'Chicken': Color(0xffFFA726),
+    'Fish': Color(0xff76C7C0),
+    'Pork': Color(0xffF28B82),
+    'Salty': Color(0xff90A4AE),
+    'Savory': Color(0xffA1887F),
+    'Seafood': Color(0xff0277BD),
+    'Soup': Color(0xffBDBDBD),
+    'Sour': Color(0xffFFD966),
+    'Spicy': Color(0xffE53935),
+    'Sweet': Color(0xffF48FB1),
+    'Vegetable': Color(0xff81C784),
+  };
+
+  Future<void> _loadDishTags() async {
+    setState(() => _tagsLoading = true);
+    try {
+      final dishId = widget.dish.id;
+      final rows = await _supabase
+          .from('DishTags')
+          .select('tag_id, Tags(name)')
+          .eq('dish_id', dishId);
+
+      final list = (rows as List).map<Map<String, dynamic>>((r) {
+        final t = r['Tags'] as Map<String, dynamic>?;
+        final label = (t?['name'] as String?)?.trim() ?? '';
+        final color = _TAG_COLORS[label] ?? const Color(0xff710E1D);
+        return {'label': label, 'color': color};
+      }).toList();
+
+      setState(() {
+        _dishTags = list;
+        _tagsLoading = false;
+      });
+    } catch (e) {
+      // If it fails, just show nothing instead of crashing
+      setState(() {
+        _dishTags = [];
+        _tagsLoading = false;
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     isFavorited = widget.stall.isFavorited;
+    _loadDishTags();
   }
+
+  // ================================================== //
 
   @override
   Widget build(BuildContext context) {
@@ -67,30 +131,38 @@ class _StallDishViewPageState extends State<StallDishViewPage> {
               child: Column(
                 children: [
                   // Stall Info Section
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: Column(
-                      children: [
-                        Text(
-                          widget.stall.title,
-                          style: const TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Transform.translate(
-                          offset: Offset(0, -10),
-                          child: Text(
-                            widget.stall.location,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w500,
+                  SizedBox(
+                    width: 280,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            AutoSizeText(
+                              widget.stall.stallName,
+                              style: const TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              minFontSize: 22,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
+                            Transform.translate(
+                              offset: Offset(0, -6),
+                              child: Text(
+                                widget.stall.location,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                      ],
+                      ),
                     ),
                   ),
 
@@ -122,10 +194,17 @@ class _StallDishViewPageState extends State<StallDishViewPage> {
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(10),
-                              child: Image.asset(
-                                widget.dish.imagePath,
-                                fit: BoxFit.cover,
-                              ),
+                              child:
+                                  (widget.dish.imageUrl != null &&
+                                      widget.dish.imageUrl!.isNotEmpty)
+                                  ? Image.network(
+                                      widget.dish.imageUrl!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.asset(
+                                      'assets/png/image-square.png',
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
                           ),
                         ),
@@ -137,11 +216,17 @@ class _StallDishViewPageState extends State<StallDishViewPage> {
                           children: [
                             Transform.translate(
                               offset: Offset(30, -26),
-                              child: Text(
-                                widget.dish.name,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w400,
+                              child: SizedBox(
+                                width: 180,
+                                child: AutoSizeText(
+                                  widget.dish.dishName,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  maxLines: 1,
+                                  minFontSize: 20,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
@@ -181,7 +266,7 @@ class _StallDishViewPageState extends State<StallDishViewPage> {
                           child: SizedBox(
                             width: 260,
                             child: Text(
-                              widget.dish.description,
+                              widget.dish.description ?? '',
                               textAlign: TextAlign.justify,
                               style: const TextStyle(
                                 fontSize: 12,
@@ -209,7 +294,7 @@ class _StallDishViewPageState extends State<StallDishViewPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // 🔹 Line above "Food Tags"
+                                // Line above "Food Tags"
                                 Container(
                                   width: 300,
                                   height: 1,
@@ -217,7 +302,7 @@ class _StallDishViewPageState extends State<StallDishViewPage> {
                                   margin: const EdgeInsets.only(bottom: 8),
                                 ),
 
-                                // 🔹 Title
+                                // Title
                                 Transform.translate(
                                   offset: Offset(18, 0),
                                   child: const Text(
@@ -230,25 +315,61 @@ class _StallDishViewPageState extends State<StallDishViewPage> {
                                 ),
                                 const SizedBox(height: 10),
 
-                                // 🔹 Tag list (one per line)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildTag("Pork", const Color(0xffF28B82)),
-                                    const SizedBox(height: 10),
-                                    _buildTag("Spicy", const Color(0xffE53935)),
-                                    const SizedBox(height: 10),
-                                    _buildTag("Sour", const Color(0xffFFD966)),
-                                  ],
-                                ),
+                                // Tag list (one per line)
+                                Builder(
+                                  builder: (_) {
+                                    if (_tagsLoading) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    if (_dishTags.isEmpty) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 20,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            'No listed tags.',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.black54,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      );
+                                    }
 
-                                // ============================================================
-                                // BACKEND NOTE (for later when connected to Supabase)
-                                // Replace the static Column above with a FutureBuilder that:
-                                //   1. Fetches tags from your 'food_tags' table
-                                //      Example: final response = await supabase.from('food_tags').select();
-                                //   2. Maps through the results and builds each tag using _buildTag(label, color).
-                                // ============================================================
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        for (
+                                          int i = 0;
+                                          i < _dishTags.length;
+                                          i++
+                                        ) ...[
+                                          _buildTag(
+                                            _dishTags[i]['label'] as String,
+                                            (_dishTags[i]['color'] as Color?) ??
+                                                const Color(0xff710E1D),
+                                          ),
+                                          if (i != _dishTags.length - 1)
+                                            const SizedBox(height: 10),
+                                        ],
+                                      ],
+                                    );
+                                  },
+                                ),
                               ],
                             ),
                           ),
@@ -264,12 +385,12 @@ class _StallDishViewPageState extends State<StallDishViewPage> {
 
           // Roof Header (Top)
           const Positioned(top: 0, left: 0, right: 0, child: StoreRoof()),
-          
+
           Positioned(
             top: 45,
             left: 12,
             child: Container(
-              width: 30, 
+              width: 30,
               height: 30,
               decoration: const BoxDecoration(
                 color: Colors.white,
